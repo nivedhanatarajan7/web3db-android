@@ -1,17 +1,46 @@
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useAuth } from "./AuthContext"; // Import useAuth hook
+import {
+  WalletConnectModal,
+  useWalletConnectModal
+} from '@walletconnect/modal-react-native'
+
+// 1. Get projectId at https://cloud.reown.com
+const projectId = '0251b595c8c7c2e38f37046849a01a15'
+
+// 2. Create config
+const metadata = {
+  name: 'Web3DB App',
+  description: 'Web3DB App Connect',
+  url: 'https://reown.com/appkit',
+  icons: ['https://avatars.githubusercontent.com/u/179229932'],
+  redirect: {
+    native: 'YOUR_APP_SCHEME://',
+    universal: 'YOUR_APP_UNIVERSAL_LINK.com'
+  }
+}
 
 export default function LoginScreen() {
   const { walletInfo, connectWallet, logout } = useAuth();
+  const { open, isConnected, address, provider } = useWalletConnectModal();
+
+  const handleButtonPress = async () => {
+    if(isConnected) {
+      return provider?.disconnect();
+    }
+
+    return open();
+  }
 
   return (
     <View style={styles.container}>
       <View style={styles.card}>
         <Text style={styles.title}>Web3DB App</Text>
+        <Text>{isConnected ? address : 'No wallet connected'}</Text>
 
         {!walletInfo.connected ? (
-          <TouchableOpacity style={styles.button} onPress={connectWallet}>
+          <TouchableOpacity style={styles.button} onPress={handleButtonPress}>
             <Text style={styles.buttonText}>Connect to MetaMask</Text>
           </TouchableOpacity>
         ) : (
@@ -24,6 +53,15 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </>
         )}
+
+        <WalletConnectModal 
+          explorerRecommendedWalletIds={[
+            'c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96',
+          ]}
+          explorerExcludedWalletIds={'ALL'}
+          projectId={projectId}
+          providerMetadata={metadata}
+        />
 
         <Text style={styles.status}>{walletInfo.status}</Text>
       </View>
