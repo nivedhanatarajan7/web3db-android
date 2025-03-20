@@ -220,21 +220,40 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+    paddingTop: 70,
     alignItems: "center",
     backgroundColor: "#f5f5f5",
-    padding: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 10,
   },
   headerContainer: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "space-between",
     width: "100%",
-    marginBottom: 20,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  header: {
+    fontSize: 22,
+    fontWeight: "bold",
+    textAlign: "center",
+    flex: 1,
+  },
+  editButton: {
+    backgroundColor: "#4da6ff",
+    padding: 12,
+    borderRadius: 100,
+    marginLeft: 12,
+  },
+  outerContainer: {
+    width: "100%", // Ensure it takes full width
+    flexDirection: "column", // Stack categories
   },
   categoryContainer: {
-    width: "100%",
-    marginBottom: 20,
-    padding: 10,
+    width: "100%", // Full width for each category
+    marginBottom: 16,
+    padding: 16,
     backgroundColor: "#fff",
     borderRadius: 10,
     shadowColor: "#000",
@@ -243,34 +262,30 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  categoryTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 10,
-  },
   cardGroup: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "center",
+    justifyContent: "space-between", // Spread items
   },
-  header: {
-    fontSize: 24,
+  card: {
+    width: "48%", // Larger cards, ensuring two per row
+    aspectRatio: 1.3, // Adjust height proportionally
+    backgroundColor: "#ffffff",
+    borderRadius: 10,
+    padding: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  cardText: {
+    fontSize: 20,
+    fontWeight: "bold",
     textAlign: "center",
-    flex: 1,
-  },
-  editButton: {
-    backgroundColor: "#4da6ff",
-    padding: 10,
-    borderRadius: 100,
-    marginRight: 40,
-  },
-  outerContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "flex-start",
-    width: "100%",
-    marginBottom: 20,
-    flexWrap: "wrap", // Allow containers to wrap to the next line
   },
   modalContainer: {
     flex: 1,
@@ -279,10 +294,11 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   modalContent: {
-    width: "40%",
-    padding: 20,
+    width: "90%",
+    maxWidth: 450,
+    padding: 24,
     backgroundColor: "#fff",
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: "center",
   },
   closeButton: {
@@ -291,14 +307,5 @@ const styles = StyleSheet.create({
   closeButtonText: {
     fontSize: 18,
     fontWeight: "bold",
-  },
-  modalMainText: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 10,
-  },
-  modalSubText: {
-    fontSize: 18,
-    color: "gray",
   },
 });

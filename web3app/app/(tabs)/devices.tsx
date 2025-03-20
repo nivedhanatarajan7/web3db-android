@@ -122,6 +122,8 @@ const DevicesScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    paddingTop: 70,
+
     backgroundColor: "#f0f0f0",
     padding: 20,
   },
