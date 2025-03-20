@@ -1,10 +1,9 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { Linking, Platform } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import { useWalletConnectModal } from "@walletconnect/modal-react-native";
 
 interface WalletInfo {
-  address: string | null;
   connected: boolean;
+  address: string | null;
   status: string;
 }
 
@@ -16,79 +15,46 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { open, isConnected, address, provider } = useWalletConnectModal();
   const [walletInfo, setWalletInfo] = useState<WalletInfo>({
-    address: null,
     connected: false,
-    status: "🔗 Click to connect your wallet.",
+    address: null,
+    status: "Not connected",
   });
 
-  // 🔄 Load wallet info from storage when app starts
+  // Automatically update wallet state when connection changes
   useEffect(() => {
-    const loadWallet = async () => {
-      const storedWallet = await AsyncStorage.getItem("walletInfo");
-      if (storedWallet) {
-        setWalletInfo(JSON.parse(storedWallet));
-      }
-    };
-    loadWallet();
-  }, []);
+    if (isConnected && address) {
+      setWalletInfo({
+        connected: true,
+        address,
+        status: "Connected",
+      });
+    } else {
+      setWalletInfo({
+        connected: false,
+        address: null,
+        status: "Not connected",
+      });
+    }
+  }, [isConnected, address]);
 
   const connectWallet = async () => {
-    if (Platform.OS === "web") {
-      if (typeof window !== "undefined" && (window as any).ethereum) {
-        try {
-          const accounts = await (window as any).ethereum.request({
-            method: "eth_requestAccounts",
-          });
-          const newWalletInfo = {
-            address: accounts[0],
-            connected: true,
-            status: "✅ Wallet connected successfully!",
-          };
-          setWalletInfo(newWalletInfo);
-          await AsyncStorage.setItem("walletInfo", JSON.stringify(newWalletInfo)); // Save login state
-        } catch (error: any) {
-          setWalletInfo({
-            address: null,
-            connected: false,
-            status: `❌ ${error.message}`,
-          });
-        }
-      } else {
-        setWalletInfo({
-          address: null,
-          connected: false,
-          status: "⚠️ MetaMask not installed. Please install it to continue.",
-        });
-      }
-    } else {
-      // Mobile: Open MetaMask via deep link
-      const metamaskAppDeepLink = `https://metamask.app.link/dapp/exp://172.20.106.114:8083`;
-      try {
-        const supported = await Linking.canOpenURL(metamaskAppDeepLink);
-        if (supported) {
-          await Linking.openURL(metamaskAppDeepLink);
-        } else {
-          setWalletInfo({
-            address: null,
-            connected: false,
-            status: "⚠️ MetaMask not installed.",
-          });
-        }
-      } catch (error) {
-        console.error(error);
-      }
+    try {
+      await open(); // Open WalletConnect modal
+    } catch (error) {
+      console.error("Wallet connection error:", error);
     }
   };
 
-  const logout = async () => {
+  const logout = () => {
+    provider?.disconnect();
     setWalletInfo({
-      address: null,
       connected: false,
-      status: "🔗 Click to connect your wallet.",
+      address: null,
+      status: "Disconnected",
     });
-    await AsyncStorage.removeItem("walletInfo"); // Remove login state
   };
 
   return (
@@ -98,7 +64,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
-export const useAuth = () => {
+export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (!context) {
     throw new Error("useAuth must be used within an AuthProvider");
