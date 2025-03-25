@@ -42,7 +42,7 @@ const DevicesScreen = () => {
     const addDevice = async () => {
       const newEntry = {
         wallet_id: walletInfo.address,
-        device_id: deviceId,
+        device_id: `${deviceId}`,
         name: name,
         category: category,
         measurement_unit: measurement,
@@ -58,6 +58,8 @@ const DevicesScreen = () => {
   
         const responseData = await response.json(); // Read response
         console.log(response);
+
+        window.location.reload();
       } catch {
         console.log("Error adding data");
       }
@@ -122,8 +124,6 @@ const DevicesScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 70,
-
     backgroundColor: "#f0f0f0",
     padding: 20,
   },

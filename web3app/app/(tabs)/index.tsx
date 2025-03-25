@@ -7,13 +7,20 @@ import {
   TouchableOpacity,
   ScrollView,
   Animated,
+  TextInput,
+  Button,
+  KeyboardAvoidingView,
+  Platform,
+  Dimensions,
 } from "react-native";
-import CardContainer from "../../components/CardContainer"; // Adjust the path as necessary
+import CardContainer from "../../components/CardContainer";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import { useRouter } from "expo-router";
 import axios from "axios";
 import { useAuth } from "../AuthContext";
-import DataScreen from "../datatypes/[id]"; // Adjust the path based on your project structure
+import DataScreen from "../datatypes/[id]"; 
+
+const { width, height } = Dimensions.get("window");
 
 export default function HomeAssistant() {
   const router = useRouter();
@@ -22,6 +29,7 @@ export default function HomeAssistant() {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedCard, setSelectedCard] = useState<{
     category: string;
+
     mainText: string;
     subText: string;
   } | null>(null);
@@ -42,6 +50,17 @@ export default function HomeAssistant() {
   const [newCategory, setNewCategory] = useState("");
   const [measurement, setMeasurement] = useState("");
   const [loading, setLoading] = useState(false);
+  const [newContainerName, setNewContainerName] = useState("");
+  const [addContainerModalVisible, setAddContainerModalVisible] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+  };
 
   const fetchDataTypes = async () => {
     try {
@@ -115,8 +134,8 @@ export default function HomeAssistant() {
     fetchDataTypes();
   }, []);
 
-  const handleCardPress = (mainText: string, subText: string) => {
-    setSelectedCard({ mainText, subText });
+  const handleCardPress = (category:string, mainText: string, subText: string) => {
+    setSelectedCard({ category, mainText, subText });
     setModalVisible(true);
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -124,7 +143,6 @@ export default function HomeAssistant() {
       useNativeDriver: true,
     }).start();
   };
-
 
   const handleCloseModal = () => {
     Animated.timing(fadeAnim, {
@@ -159,18 +177,51 @@ export default function HomeAssistant() {
     });
   };
 
+  const handleAddContainer = () => {
+    if (newContainerName) {
+      setCategories((prevCategories) => ({
+        ...prevCategories,
+        [newContainerName]: [
+          {
+            category: newContainerName,
+            name: "Create New Card",
+            measurement: "Insert Data",
+            isActive: false,
+          },
+        ],
+      }));
+      setNewContainerName("");
+      setAddContainerModalVisible(false);
+    }
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
       <View style={styles.container}>
         <View style={styles.headerContainer}>
           <Text style={styles.header}>Welcome to Web3DB App, User!</Text>
-          <TouchableOpacity style={styles.editButton} onPress={handleEditPress}>
-            <MaterialCommunityIcons
-              name={isEditing ? "check" : "pencil"}
-              size={24}
-              color="#fff"
-            />
-          </TouchableOpacity>
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity
+              style={[
+                styles.addButton,
+                !isEditing && styles.hidden,
+                isHovered && styles.addButtonHovered,
+              ]}
+              onPress={() => setAddContainerModalVisible(true)}
+              disabled={!isEditing}
+              onMouseEnter={handleMouseEnter}
+              onMouseLeave={handleMouseLeave}
+            >
+              <Text style={styles.addButtonText}>Add New Container</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.editButton} onPress={handleEditPress}>
+              <MaterialCommunityIcons
+                name={isEditing ? "check" : "pencil"}
+                size={24}
+                color="#fff"
+              />
+            </TouchableOpacity>
+          </View>
         </View>
         <View style={styles.outerContainer}>
           {Object.entries(categories).map(([categoryName, items]) => (
@@ -202,6 +253,7 @@ export default function HomeAssistant() {
                 </TouchableOpacity>
                 <DataScreen
                   category={selectedCard.category}
+
                   dataType={selectedCard.mainText}
                   measurement={selectedCard.subText}
                 />
@@ -209,103 +261,65 @@ export default function HomeAssistant() {
             </Animated.View>
           </Modal>
         )}
+
+        <Modal
+          transparent={true}
+          visible={addContainerModalVisible}
+          onRequestClose={() => setAddContainerModalVisible(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Add New Container</Text>
+              <TextInput
+                placeholder="Container Name"
+                style={styles.input}
+                value={newContainerName}
+                onChangeText={setNewContainerName}
+              />
+              <View style={styles.buttonRow}>
+                <Button
+                  title="Cancel"
+                  onPress={() => setAddContainerModalVisible(false)}
+                  color="gray"
+                />
+                <Button
+                  title="Add"
+                  onPress={handleAddContainer}
+                  color="#2196F3"
+                />
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContainer: {
-    flexGrow: 1,
-  },
-  container: {
-    flex: 1,
-    paddingTop: 70,
-    alignItems: "center",
-    backgroundColor: "#f5f5f5",
-    paddingVertical: 16,
-    paddingHorizontal: 10,
-  },
-  headerContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    width: "100%",
-    paddingHorizontal: 16,
-    marginBottom: 16,
-  },
-  header: {
-    fontSize: 22,
-    fontWeight: "bold",
-    textAlign: "center",
-    flex: 1,
-  },
-  editButton: {
-    backgroundColor: "#4da6ff",
-    padding: 12,
-    borderRadius: 100,
-    marginLeft: 12,
-  },
-  outerContainer: {
-    width: "100%", // Ensure it takes full width
-    flexDirection: "column", // Stack categories
-  },
-  categoryContainer: {
-    width: "100%", // Full width for each category
-    marginBottom: 16,
-    padding: 16,
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  cardGroup: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between", // Spread items
-  },
-  card: {
-    width: "48%", // Larger cards, ensuring two per row
-    aspectRatio: 1.3, // Adjust height proportionally
-    backgroundColor: "#ffffff",
-    borderRadius: 10,
-    padding: 16,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  cardText: {
-    fontSize: 20,
-    fontWeight: "bold",
-    textAlign: "center",
-  },
+  scrollContainer: { flexGrow: 1, paddingBottom: 20 },
+  container: { flex: 1, backgroundColor: "#f5f5f5", padding: 20 },
+  headerContainer: { flexDirection: "row", justifyContent: "space-between", width: "100%", marginBottom: 20 },
+  header: { fontSize: 20, fontWeight: "bold", flex: 1 },
+  editButton: { backgroundColor: "#4da6ff", padding: 10, borderRadius: 100 },
+  outerContainer: { flexWrap: "wrap", width: "100%", marginBottom: 20 },
   modalContainer: {
-    flex: 1,
+    flex: 1, // Ensures it takes full screen height
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(0, 0, 0, 0.5)", // Adds a transparent background
   },
   modalContent: {
-    width: "90%",
-    maxWidth: 450,
-    padding: 24,
-    backgroundColor: "#fff",
+    width: "90%", // Adjust for mobile-friendly width
+    maxHeight: "90%", // Ensure it doesn't overflow
+    backgroundColor: "white",
+    padding: 20,
     borderRadius: 10,
     alignItems: "center",
+    justifyContent: "center",
   },
-  closeButton: {
-    alignSelf: "flex-end",
-  },
-  closeButtonText: {
-    fontSize: 18,
-    fontWeight: "bold",
-  },
+  closeButton: { alignSelf: "flex-end" },
+  closeButtonText: { fontSize: 18, fontWeight: "bold" },
+  input: { width: "100%", padding: 10, borderWidth: 1, borderColor: "#ccc", borderRadius: 5, marginBottom: 10 },
+  buttonRow: { flexDirection: "row", justifyContent: "space-between", width: "100%" },
 });

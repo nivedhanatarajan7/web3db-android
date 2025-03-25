@@ -5,6 +5,9 @@ import { Card, Text, Button, IconButton } from "react-native-paper";
 import { useLocalSearchParams } from "expo-router";
 import { LineChart } from "react-native-gifted-charts";
 import { useAuth } from "../AuthContext";
+import { Pedometer } from "expo-sensors";
+
+const { width } = Dimensions.get("window");
 
 interface DataScreenProps {
   category: string;
@@ -12,11 +15,10 @@ interface DataScreenProps {
   measurement: string;
 }
 
-
 const DataScreen: React.FC<DataScreenProps> = ({ category, dataType, measurement }) => {
   const params = useLocalSearchParams();
-  const { walletInfo, logout } = useAuth();
 
+  const { walletInfo } = useAuth();
   const id = dataType as string;
   const category_use = category as string;
   const measurementUnit = measurement as string;
@@ -24,21 +26,40 @@ const DataScreen: React.FC<DataScreenProps> = ({ category, dataType, measurement
 
   const [values, setValues] = useState<number[]>([]);
   const [timestamps, setTimestamps] = useState<number[]>([]);
-  const [timeframe, setTimeframe] = useState<string>("5 hours"); // Default to 5 hours
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [current, setCurrent] = useState(0);
+  const [timeframe, setTimeframe] = useState<string>("5 hours");
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [isPedometerAvailable, setIsPedometerAvailable] = useState(false);
+  const [stepCount, setStepCount] = useState(0);
+
+  useEffect(() => {
+    if (dataType === "Footsteps") {
+      startStepTracking();
+    } else {
+      fetchData();
+      const interval = setInterval(fetchData, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [dataType, timeframe, selectedDate]);
+
   useEffect(() => {
     if (values.length > 0) {
-      setCurrent(values.at(0) ?? 0); // Default to 0 if undefined
+      setCurrent(values.at(0) ?? 0);
     }
   }, [values]);
-  
-  useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 10000);
-    return () => clearInterval(interval);
-  }, [id, timeframe, selectedDate]);
+
+  const startStepTracking = async () => {
+    const isAvailable = await Pedometer.isAvailableAsync();
+    setIsPedometerAvailable(isAvailable);
+
+    if (isAvailable) {
+      Pedometer.watchStepCount((result) => {
+        setStepCount(result.steps);
+        setValues((prev) => [...prev, result.steps]);
+        setTimestamps((prev) => [...prev, Date.now()]);
+      });
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -76,7 +97,6 @@ const DataScreen: React.FC<DataScreenProps> = ({ category, dataType, measurement
       console.error("Error fetching data", error);
     }
   };
-  
 
   const generateFullTimeRange = () => {
     const now = selectedDate.getTime();
@@ -161,190 +181,106 @@ const DataScreen: React.FC<DataScreenProps> = ({ category, dataType, measurement
   const { formattedLabels, mergedValues } = mergedData();
 
 
-
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text variant="headlineMedium" style={styles.title}>
-            {title} Overview
-          </Text>
-  
-      <View style={styles.layoutContainer}>
-        {/* Left Side: Date Picker & Graph */}
-        <View style={styles.leftSide}>
-          <View style={styles.date}>
-            <IconButton
-              icon="chevron-left"
-              size={24}
-              onPress={() =>
-                setSelectedDate(new Date(selectedDate.getTime() - 86400000))
-              }
-            />
-            <Button mode="contained" buttonColor="#2196F3" onPress={() => setShowDatePicker(true)}>
-              {selectedDate.toDateString()}
-            </Button>
-            <IconButton
-              icon="chevron-right"
-              size={24}
-              onPress={() =>
-                setSelectedDate(new Date(selectedDate.getTime() + 86400000))
-              }
-            />
-          </View>
-  
-          <View style={styles.buttonRow}>
-            {["1 hour", "5 hours", "24 hours"].map((item) => (
-              <Button
-                key={item}
-                mode="contained"
-                style={[
-                  styles.timeButton,
-                  timeframe === item ? styles.activeButton : styles.inactiveButton,
-                ]}
-                labelStyle={
-                  timeframe === item ? styles.activeButtonText : styles.inactiveButtonText
-                }
-                onPress={() => setTimeframe(item)}
-              >
-                {item}
-              </Button>
-            ))}
-          </View>
-  
-          <Text variant="titleLarge" style={styles.title}>
-            {title} Trends
-          </Text>
+        {title} Overview
+      </Text>
 
-          <View style={styles.chartContainer}>
-            <LineChart
-              data={mergedValues.map((value, index) => ({
-                value,
-                label: formattedLabels[index] || "",
-              }))}
-              width={200}
-              height={200}
-              color="rgba(0, 123, 255, 1)"
-              yAxisTextStyle={{ color: "#000000" }}
-              xAxisLabelTextStyle={{ color: "#000000", fontSize: 10 }}
-              startFillColor="rgba(0, 123, 255, 1)"
-              endFillColor="rgba(20,85,81,0.01)"
-              noOfSections={3}
-              areaChart
-              curved
-              showXAxisIndices={true}
-              xAxisIndicesHeight={5}
-              pointerConfig={{
-                pointerStripHeight: 160,
-                pointerStripColor: "lightgray",
-                pointerStripWidth: 2,
-                pointerColor: "lightgray",
-                radius: 6,
-                pointerLabelWidth: 100,
-                pointerLabelHeight: 90,
-                activatePointersOnLongPress: true,
-                autoAdjustPointerLabelPosition: false,
-                pointerLabelComponent: (items) => (
-                  <View style={{ height: 90, width: 100, justifyContent: "center" }}>
-                    <Text style={{ color: "white", fontSize: 14, marginBottom: 6, textAlign: "center" }}>
-                      {items[0].date}
-                    </Text>
-                    <View style={{ paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16, backgroundColor: "white" }}>
-                      <Text style={{ fontWeight: "bold", textAlign: "center" }}>
-                        {items[0].value} bpm
-                      </Text>
-                    </View>
-                  </View>
-                ),
-              }}
-            />
-          </View>
-  
-        </View>
-  
-        {/* Right Side: Data Cards */}
-        <View style={styles.rightSide}>
-          <Card style={styles.valueCard}>
-            <Text variant="titleMedium" style={styles.valueTitle}>
-              Current {title}
-            </Text>
-            <Text variant="displaySmall" style={styles.valueText}>
-              {current} {measurementUnit}
-            </Text>
-          </Card>
-  
-          <Card style={styles.valueCard}>
-            <Text variant="titleMedium" style={styles.valueTitle}>
-              Average {title}
-            </Text>
-            <Text variant="displaySmall" style={styles.valueText}>
-              {values.length > 0
-                ? (values.reduce((a, b) => a + b) / values.length).toFixed(1)
-                : "No data"}{" "}
-              {measurementUnit}
-            </Text>
-          </Card>
-  
-          <Card style={styles.valueCard}>
-            <Text variant="titleMedium" style={styles.valueTitle}>
-              Highest {title}
-            </Text>
-            <Text variant="displaySmall" style={styles.valueText}>
-              {values.length > 0 ? Math.max(...values) : "No data"} {measurementUnit}
-            </Text>
-          </Card>
-        </View>
+      <View style={styles.date}>
+        <IconButton
+          icon="chevron-left"
+          size={24}
+          onPress={() => setSelectedDate(new Date(selectedDate.getTime() - 86400000))}
+        />
+        <Button mode="contained" buttonColor="#2196F3">
+          {selectedDate.toDateString()}
+        </Button>
+        <IconButton
+          icon="chevron-right"
+          size={24}
+          onPress={() => setSelectedDate(new Date(selectedDate.getTime() + 86400000))}
+        />
+      </View>
+
+      <View style={styles.buttonRow}>
+        {["1 hour", "5 hours", "24 hours"].map((item) => (
+          <Button
+            key={item}
+            mode="contained"
+            style={[
+              styles.timeButton,
+              timeframe === item ? styles.activeButton : styles.inactiveButton,
+            ]}
+            labelStyle={timeframe === item ? styles.activeButtonText : styles.inactiveButtonText}
+            onPress={() => setTimeframe(item)}
+          >
+            {item}
+          </Button>
+        ))}
+      </View>
+
+      <View style={styles.chartContainer}>
+        <LineChart
+          data={values.map((value, index) => ({
+            value,
+            label: timestamps[index]
+              ? new Date(timestamps[index]).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+              : "",
+          }))}
+          width={width * 0.5}
+          height={150}
+          color="rgba(0, 123, 255, 1)"
+          yAxisTextStyle={{ color: "#000000" }}
+          xAxisLabelTextStyle={{ color: "#000000", fontSize: 10 }}
+          startFillColor="rgba(0, 123, 255, 1)"
+          endFillColor="rgba(20,85,81,0.01)"
+          noOfSections={3}
+          areaChart
+          curved
+          showXAxisIndices
+          xAxisIndicesHeight={5}
+        />
+      </View>
+
+      <View style={styles.valueCardContainer}>
+        <Card style={styles.valueCard}>
+          <Text variant="titleMedium" style={styles.valueTitle}>
+            Current {title}
+          </Text>
+          <Text variant="displaySmall" style={styles.valueText}>
+            {dataType === "Footsteps" ? stepCount : current} {measurement}
+          </Text>
+        </Card>
+
+        <Card style={styles.valueCard}>
+          <Text variant="titleMedium" style={styles.valueTitle}>
+            Total Steps
+          </Text>
+          <Text variant="displaySmall" style={styles.valueText}>
+            {dataType === "Footsteps" ? stepCount : values.reduce((a, b) => a + b, 0)} {measurement}
+          </Text>
+        </Card>
       </View>
     </ScrollView>
   );
-  
-}
+};
 
 export default DataScreen;
 
 const styles = StyleSheet.create({
-  container: { 
-    backgroundColor: "#f0f0f0", 
-    padding: 20, 
-    flexGrow: 1 
+  container: {
+    backgroundColor: "#f0f0f0",
+    padding: 20,
+    alignItems: "center",
   },
 
-  layoutContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap", // Allows wrapping on smaller screens
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-
-  leftSide: {
-    width: "60%", // Ensure it doesn't exceed the screen width
-    paddingRight: 10,
-  },
-
-  rightSide: {
-    flexDirection: "column", // Stack cards vertically
-    width: "35%", 
-    alignItems: "center", // Center items horizontally
-    justifyContent: "space-between", // Distribute them evenly
-  },
-  
-  valueCard: {
-    width: "90%", // Make the cards take most of the right side width
-    backgroundColor: "#2196F3",
-    padding: 15,
-    marginVertical: 10, // Adds spacing between cards
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3, 
-  },
-  
-
-  title: { 
-    textAlign: "center", 
-    marginBottom: 2, 
-    fontSize: 20, 
-    fontWeight: "bold", 
-    color: "#000000" 
+  title: {
+    textAlign: "center",
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#000000",
+    marginBottom: 10,
   },
 
   date: {
@@ -357,24 +293,8 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: "row",
     justifyContent: "center",
-    alignItems: "center",
+    flexWrap: "wrap",
     marginBottom: 15,
-  },
-
-  valueText: { 
-    fontSize: 10, 
-    fontWeight: "bold", 
-    color: "#ffffff", 
-    marginVertical: 2, 
-    textAlign: "center",
-  },
-
-  valueTitle: {
-    textAlign: "center",
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#ffffff",
-    marginBottom: 5,
   },
 
   timeButton: {
@@ -398,15 +318,46 @@ const styles = StyleSheet.create({
     color: "#000000",
   },
 
-  chartContainer: { 
-    flex: 1, // Allow it to grow
-    width: "100%", // Ensure it spans the full width
-    marginVertical: 10, 
-    padding: 10, 
-    borderRadius: 10, 
-    backgroundColor: "white",
+  chartContainer: {
+    width: "100%",
     alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: "white",
+    borderRadius: 10,
+    padding: 10,
+    marginVertical: 10,
   },
-  
+
+  valueCardContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    width: "100%",
+  },
+
+  valueCard: {
+    width: "48%",
+    backgroundColor: "#2196F3",
+    padding: 15,
+    marginVertical: 10,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+
+  valueTitle: {
+    textAlign: "center",
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#ffffff",
+    marginBottom: 5,
+  },
+
+  valueText: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#ffffff",
+    textAlign: "center",
+  },
 });

@@ -291,7 +291,7 @@ const CardContainer: React.FC<CardContainerProps> = ({
 
 const styles = StyleSheet.create({
   innerContainer: {
-    flexBasis: "30%", // Ensure three items per row
+    flexBasis: "100%", // Ensure three items per row
     flexDirection: "column",
     marginHorizontal: 20,
     paddingBottom: 20,
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   cardWrapper: {
-    width: "48%", // Adjust the width to fit two cards per row with some spacing
+    width: "100%", // Adjust the width to fit two cards per row with some spacing
     marginBottom: 0,
   },
   modalContainer: {

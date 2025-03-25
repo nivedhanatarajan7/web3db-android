@@ -94,7 +94,8 @@
     "styled-components": "^6.1.15",
     "victory-native": "^41.16.1",
     "viem": "^2.23.12",
-    "wagmi": "^2.14.15"
+    "wagmi": "^2.14.15",
+    "expo-sensors": "~14.0.2"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
