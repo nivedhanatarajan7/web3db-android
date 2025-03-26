@@ -254,8 +254,8 @@ export default function HomeAssistant() {
                 <DataScreen
                   category={selectedCard.category}
 
-                  dataType={selectedCard.mainText}
-                  measurement={selectedCard.subText}
+                  dataType={selectedCard.category}
+                  measurement={selectedCard.mainText}
                 />
               </View>
             </Animated.View>

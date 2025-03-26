@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, ScrollView, StyleSheet, Dimensions } from "react-native";
+import { View, ScrollView, StyleSheet, Dimensions, Alert } from "react-native";
 import axios from "axios";
 import { Card, Text, Button, IconButton } from "react-native-paper";
 import { useLocalSearchParams } from "expo-router";
@@ -31,35 +31,66 @@ const DataScreen: React.FC<DataScreenProps> = ({ category, dataType, measurement
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isPedometerAvailable, setIsPedometerAvailable] = useState(false);
   const [stepCount, setStepCount] = useState(0);
-
-  useEffect(() => {
-    if (dataType === "Footsteps") {
-      startStepTracking();
-    } else {
-      fetchData();
-      const interval = setInterval(fetchData, 10000);
-      return () => clearInterval(interval);
-    }
-  }, [dataType, timeframe, selectedDate]);
+  const [permissionGranted, setPermissionGranted] = useState(false);
 
   useEffect(() => {
     if (values.length > 0) {
       setCurrent(values.at(0) ?? 0);
     }
   }, [values]);
+  
 
-  const startStepTracking = async () => {
-    const isAvailable = await Pedometer.isAvailableAsync();
-    setIsPedometerAvailable(isAvailable);
+  useEffect(() => {
 
-    if (isAvailable) {
-      Pedometer.watchStepCount((result) => {
-        setStepCount(result.steps);
-        setValues((prev) => [...prev, result.steps]);
-        setTimestamps((prev) => [...prev, Date.now()]);
-      });
+    async function requestPermissions() {
+      try {
+        const { granted } = await Pedometer.requestPermissionsAsync();
+        if (granted) {
+          console.log('✅ Pedometer permission granted');
+          setPermissionGranted(true);
+          startStepCounter(); // Start counting steps
+        } else {
+          console.error('❌ Pedometer permission denied');
+          Alert.alert(
+            'Permission Needed',
+            'Step tracking requires Motion & Fitness permission. Please enable it in Settings.'
+          );
+        }
+      } catch (error) {
+        console.error('Error requesting Pedometer permissions:', error);
+      }
     }
-  };
+    
+
+    async function checkPedometerAvailability() {
+      try {
+        const available = await Pedometer.isAvailableAsync();
+        setIsPedometerAvailable(available);
+      } catch (error) {
+        console.error('Error checking pedometer availability:', error);
+      }
+    }
+
+    checkPedometerAvailability();
+
+    console.log('Initializing Pedometer subscription...');
+    function startStepCounter() {
+      console.log('🚀 Starting Pedometer step tracking...');
+      const subscription = Pedometer.watchStepCount(result => {
+        try {
+          console.log('👣 Step Count Update:', result.steps);
+          setStepCount(result.steps);
+        } catch (error) {
+          console.error('Error updating step count:', error);
+        }
+      });
+
+      return () => subscription?.remove();
+    }
+    requestPermissions();
+    checkPedometerAvailability();
+
+  }, []);
 
   const fetchData = async () => {
     try {
