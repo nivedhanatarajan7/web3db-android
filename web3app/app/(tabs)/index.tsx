@@ -159,18 +159,31 @@ export default function HomeAssistant() {
     setIsEditing(!isEditing);
     setCategories(prevCategories => {
       const newCategories = { ...prevCategories };
+      console.log("Previous categories: ", newCategories);
       Object.keys(newCategories).forEach(category => {
         if (!isEditing) {
+          console.log("Adding new card to category:", category);
           newCategories[category].push({
             category,
             name: "Create New Card",
             measurement: "Insert Data",
             isActive: false,
           });
+          console.log("New categories:", newCategories);
         } else {
-          newCategories[category] = newCategories[category].filter(
+          /* newCategories[category] = newCategories[category].filter(
             item => item.name !== "Create New Card"
+          ); */
+          const filteredItems = newCategories[category].filter(
+            (item) => item.name !== "Create New Card"
           );
+          if (filteredItems.length !== newCategories[category].length) {
+            console.log(
+              `"Create New Card" successfully removed from category: ${category}`
+            );
+          }
+          newCategories[category] = filteredItems;
+          console.log("New categories:", newCategories);
         }
       });
       return newCategories;
@@ -212,7 +225,7 @@ export default function HomeAssistant() {
               onMouseEnter={handleMouseEnter}
               onMouseLeave={handleMouseLeave}
             >
-              <Text style={styles.addButtonText}>Add New Container</Text>
+              {/* <Text style={styles.addButtonText}>Add New Container</Text> */}
             </TouchableOpacity>
             <TouchableOpacity style={styles.editButton} onPress={handleEditPress}>
               <MaterialCommunityIcons
@@ -297,9 +310,9 @@ export default function HomeAssistant() {
 }
 
 const styles = StyleSheet.create({
-  scrollContainer: { flexGrow: 1, paddingBottom: 20 },
-  container: { flex: 1, backgroundColor: "#f5f5f5", padding: 20 },
-  headerContainer: { flexDirection: "row", justifyContent: "space-between", width: "100%", marginBottom: 20 },
+  scrollContainer: { flexGrow: 1, paddingBottom: 20, backgroundColor: "#f5f5f5" },
+  container: { flex: 1, backgroundColor: "#f5f5f5", padding: 20, paddingTop: 70 },
+  headerContainer: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: 20 },
   header: { fontSize: 20, fontWeight: "bold", flex: 1 },
   editButton: { backgroundColor: "#4da6ff", padding: 10, borderRadius: 100 },
   outerContainer: { flexWrap: "wrap", width: "100%", marginBottom: 20 },

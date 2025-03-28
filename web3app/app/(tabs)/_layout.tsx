@@ -15,6 +15,7 @@ export default function TabLayout() {
       screenOptions={{
         tabBarActiveTintColor: activeColor,
         tabBarInactiveBackgroundColor: 'rgba(255, 255, 255, 0.9)',
+        tabBarActiveBackgroundColor: 'rgba(255, 255, 255, 0.9)',
         headerShown: false,
         tabBarStyle: styles.tabBar,
       }}
@@ -64,9 +65,8 @@ const styles = StyleSheet.create({
   tabBar: {
     position: 'relative', // Prevents covering content
     height: 70,
-    borderRadius: 20,
     // backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    backgroundColor: Colors['blue'].background,
+    backgroundColor: 'white',
     elevation: 8, // Android shadow
     shadowColor: '#000',
     shadowOpacity: 0.1,
