@@ -5,7 +5,12 @@ import { Card, Text, Button, IconButton } from "react-native-paper";
 import { useLocalSearchParams } from "expo-router";
 import { LineChart } from "react-native-gifted-charts";
 import { useAuth } from "../AuthContext";
-import { Pedometer } from "expo-sensors";
+import {
+  initialize,
+  requestPermission,
+  readRecords,
+} from "react-native-health-connect";
+import { PermissionsAndroid } from "react-native";
 
 const { width } = Dimensions.get("window");
 
@@ -15,7 +20,11 @@ interface DataScreenProps {
   measurement: string;
 }
 
-const DataScreen: React.FC<DataScreenProps> = ({ category, dataType, measurement }) => {
+const DataScreen: React.FC<DataScreenProps> = ({
+  category,
+  dataType,
+  measurement,
+}) => {
   const params = useLocalSearchParams();
 
   const { walletInfo } = useAuth();
@@ -38,95 +47,162 @@ const DataScreen: React.FC<DataScreenProps> = ({ category, dataType, measurement
       setCurrent(values.at(0) ?? 0);
     }
   }, [values]);
+
+  const requestActivityPermission = async () => {
+    try {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACTIVITY_RECOGNITION
+      );
+
+      
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    } catch (err) {
+      console.warn(err);
+      return false;
+    }
+
+    
+  };
+
+  const getTodayTimeRange = () => {
+    const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0); // Set to midnight of today
   
+    return {
+      startTime: startOfToday.toISOString().split('.')[0] + "Z",
+      endTime: now.toISOString().split('.')[0] + "Z",
+    };
+  };
 
   useEffect(() => {
+    const readSampleData = async () => {
+      const isInitialized = await initialize();
+      console.log("isInitialized:", isInitialized);
+  
+      if (isInitialized) {
+        const hasActivityPermission = await requestActivityPermission();
+        if (!hasActivityPermission) {
+          console.log("Activity recognition permission not granted.");
+          return;
+        }
 
-    async function requestPermissions() {
-      try {
-        const { granted } = await Pedometer.requestPermissionsAsync();
-        if (granted) {
-          console.log('✅ Pedometer permission granted');
-          setPermissionGranted(true);
-          startStepCounter(); // Start counting steps
+        
+  
+        const grantedPermissions = await requestPermission([
+          { accessType: "read", recordType: "Steps" },
+        ]);
+        
+        console.log("Full grantedPermissions response:", JSON.stringify(grantedPermissions, null, 2));
+  const timeRange = getTodayTimeRange();
+
+        if (grantedPermissions.length > 0) {
+          const result = await readRecords("Steps", {
+            timeRangeFilter: {
+              operator: "between",
+              startTime: `${timeRange.startTime}`,
+              endTime: `${timeRange.endTime}`,
+            },
+          });
+
+          console.log(timeRange.endTime)
+          console.log("Step count data:", result);
+
+          const totalCount = result.records.reduce((sum, record) => sum + record.count, 0);
+          setStepCount(totalCount)
         } else {
-          console.error('❌ Pedometer permission denied');
-          Alert.alert(
-            'Permission Needed',
-            'Step tracking requires Motion & Fitness permission. Please enable it in Settings.'
-          );
+          console.log("No permissions granted.");
         }
-      } catch (error) {
-        console.error('Error requesting Pedometer permissions:', error);
       }
-    }
-    
-
-    async function checkPedometerAvailability() {
-      try {
-        const available = await Pedometer.isAvailableAsync();
-        setIsPedometerAvailable(available);
-      } catch (error) {
-        console.error('Error checking pedometer availability:', error);
-      }
-    }
-
-    checkPedometerAvailability();
-
-    console.log('Initializing Pedometer subscription...');
-    function startStepCounter() {
-      console.log('🚀 Starting Pedometer step tracking...');
-      const subscription = Pedometer.watchStepCount(result => {
-        try {
-          console.log('👣 Step Count Update:', result.steps);
-          setStepCount(result.steps);
-        } catch (error) {
-          console.error('Error updating step count:', error);
-        }
-      });
-
-      return () => subscription?.remove();
-    }
-    requestPermissions();
-    checkPedometerAvailability();
-
+    };
+  
+    readSampleData();
   }, []);
-
+  
+  useEffect(() => {
+    fetchData();
+  }, [timeframe, selectedDate]);
+  
   const fetchData = async () => {
     try {
+      if (dataType == "Footsteps") {
+        const readSampleData = async () => {
+          const isInitialized = await initialize();
+          console.log("isInitialized:", isInitialized);
+      
+          if (isInitialized) {
+            const hasActivityPermission = await requestActivityPermission();
+            if (!hasActivityPermission) {
+              console.log("Activity recognition permission not granted.");
+              return;
+            }
+    
+            
+      
+            const grantedPermissions = await requestPermission([
+              { accessType: "read", recordType: "Steps" },
+            ]);
+            
+            console.log("Full grantedPermissions response:", JSON.stringify(grantedPermissions, null, 2));
+    
+            if (grantedPermissions.length > 0) {
+              console.log(selectedDate.toISOString().split('.')[0] + "Z",)
+
+              const result = await readRecords("Steps", {
+                timeRangeFilter: {
+                  operator: "between",
+                  startTime: (new Date(selectedDate.getTime() - 86400000)).toISOString().split('.')[0] + "Z",
+                  endTime: selectedDate.toISOString().split('.')[0] + "Z",
+                },
+              });
+    
+              console.log("Step count data:", result);
+    
+              const totalCount = result.records.reduce((sum, record) => sum + record.count, 0);
+              setStepCount(totalCount)
+            } else {
+              console.log("No permissions granted.");
+            }
+          }
+        };
+      
+        readSampleData();
+      } else {
       const requestBody = {
         time: timeframe,
         topic: `${walletInfo.address}/${category_use}/${id}`,
         date: selectedDate.toISOString().split("T")[0],
-        wallet_id: walletInfo.address
+        wallet_id: walletInfo.address,
       };
-  
+
       console.log("Sending API request with:", requestBody);
-  
+
       const response = await axios.post(
         "http://129.74.152.201:5100/get-medical",
         requestBody
       );
-  
+
       console.log("API Response:", response.data);
-  
+
       if (!response.data || response.data.message === "No data available") {
         console.warn("No data received for:", timeframe);
         return; // Do not clear existing values
       }
-  
+
       const rawData = response.data.data || [];
       const filteredData = rawData.filter(
         (record) => record.value !== undefined && record.timestamp
       );
-  
+
       if (filteredData.length > 0) {
         setValues(filteredData.map((record) => parseFloat(record.value)));
         setTimestamps(filteredData.map((record) => record.timestamp * 1000));
       }
+    }
     } catch (error) {
       console.error("Error fetching data", error);
     }
+  
   };
 
   const generateFullTimeRange = () => {
@@ -150,40 +226,47 @@ const DataScreen: React.FC<DataScreenProps> = ({ category, dataType, measurement
 
   const mergedData = () => {
     const completeTimeRange = generateFullTimeRange();
-    
+
     if (values.length === 1) {
       // If only one data point exists, place it in the middle of the time range
       const middleIndex = Math.floor(completeTimeRange.length / 2);
-      const filledValues = completeTimeRange.map((_, index) =>
-        index === middleIndex ? values[0] : 0 // Only set the value at one index
+      const filledValues = completeTimeRange.map(
+        (_, index) => (index === middleIndex ? values[0] : 0) // Only set the value at one index
       );
-  
+
       return {
         formattedLabels: completeTimeRange.map((time, index) =>
           index % Math.ceil(completeTimeRange.length / 10) === 0
-            ? new Date(time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            ? new Date(time).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })
             : ""
         ),
         mergedValues: filledValues,
       };
     }
-  
+
     // Normal case when multiple data points exist
     const mergedValues = completeTimeRange.map((time) => {
-      const closestIndex = timestamps.findIndex((t) => Math.abs(t - time) <= 30 * 60 * 1000);
+      const closestIndex = timestamps.findIndex(
+        (t) => Math.abs(t - time) <= 30 * 60 * 1000
+      );
       return closestIndex !== -1 ? values[closestIndex] : 0;
     });
-  
+
     const labelInterval = Math.ceil(completeTimeRange.length / 10);
     const formattedLabels = completeTimeRange.map((time, index) =>
       index % labelInterval === 0
-        ? new Date(time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        ? new Date(time).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          })
         : ""
     );
-  
+
     return { formattedLabels, mergedValues };
   };
-  
 
   const fillMissingData = (timestamps: number[], values: number[]) => {
     if (timestamps.length === 0) return { timestamps: [], values: [] };
@@ -193,7 +276,7 @@ const DataScreen: React.FC<DataScreenProps> = ({ category, dataType, measurement
 
     const startTime = timestamps[0];
     const endTime = timestamps[timestamps.length - 1];
-    const interval = (endTime - startTime) / (timestamps.length - 1) || 60000; 
+    const interval = (endTime - startTime) / (timestamps.length - 1) || 60000;
 
     for (let time = startTime; time <= endTime; time += interval) {
       const index = timestamps.indexOf(time);
@@ -211,7 +294,6 @@ const DataScreen: React.FC<DataScreenProps> = ({ category, dataType, measurement
 
   const { formattedLabels, mergedValues } = mergedData();
 
-
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text variant="headlineMedium" style={styles.title}>
@@ -219,35 +301,52 @@ const DataScreen: React.FC<DataScreenProps> = ({ category, dataType, measurement
       </Text>
 
       <View style={styles.date}>
-        <IconButton
-          icon="chevron-left"
-          size={24}
-          onPress={() => setSelectedDate(new Date(selectedDate.getTime() - 86400000))}
-        />
-        <Button mode="contained" buttonColor="#2196F3">
-          {selectedDate.toDateString()}
-        </Button>
-        <IconButton
-          icon="chevron-right"
-          size={24}
-          onPress={() => setSelectedDate(new Date(selectedDate.getTime() + 86400000))}
-        />
+      <IconButton
+  icon="chevron-left"
+  size={24}
+  onPress={() => {
+    const newDate = new Date(selectedDate.getTime() - 86400000);
+    setSelectedDate(newDate);
+    fetchData();
+  }}
+/>
+<Button mode="contained" buttonColor="#2196F3">
+  {selectedDate.toDateString()}
+</Button>
+<IconButton
+  icon="chevron-right"
+  size={24}
+  onPress={() => {
+    const newDate = new Date(selectedDate.getTime() + 86400000);
+    setSelectedDate(newDate);
+    fetchData();
+  }}
+/>
+
       </View>
 
       <View style={styles.buttonRow}>
         {["1 hour", "5 hours", "24 hours"].map((item) => (
           <Button
-            key={item}
-            mode="contained"
-            style={[
-              styles.timeButton,
-              timeframe === item ? styles.activeButton : styles.inactiveButton,
-            ]}
-            labelStyle={timeframe === item ? styles.activeButtonText : styles.inactiveButtonText}
-            onPress={() => setTimeframe(item)}
-          >
-            {item}
-          </Button>
+          key={item}
+          mode="contained"
+          style={[
+            styles.timeButton,
+            timeframe === item ? styles.activeButton : styles.inactiveButton,
+          ]}
+          labelStyle={
+            timeframe === item
+              ? styles.activeButtonText
+              : styles.inactiveButtonText
+          }
+          onPress={() => {
+            setTimeframe(item);
+            fetchData();
+          }}
+        >
+          {item}
+        </Button>
+        
         ))}
       </View>
 
@@ -256,7 +355,10 @@ const DataScreen: React.FC<DataScreenProps> = ({ category, dataType, measurement
           data={values.map((value, index) => ({
             value,
             label: timestamps[index]
-              ? new Date(timestamps[index]).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+              ? new Date(timestamps[index]).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
               : "",
           }))}
           width={width * 0.5}
@@ -289,7 +391,10 @@ const DataScreen: React.FC<DataScreenProps> = ({ category, dataType, measurement
             Total Steps
           </Text>
           <Text variant="displaySmall" style={styles.valueText}>
-            {dataType === "Footsteps" ? stepCount : values.reduce((a, b) => a + b, 0)} {measurement}
+            {dataType === "Footsteps"
+              ? stepCount
+              : values.reduce((a, b) => a + b, 0)}{" "}
+            {measurement}
           </Text>
         </Card>
       </View>

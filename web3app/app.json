@@ -16,6 +16,11 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "permissions": [
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.READ_FLOORS_CLIMBED",
+        "android.permission.health.READ_DISTANCE"
+      ],
       "package": "com.nnatarajan.web3app"
     },
     "web": {
@@ -34,6 +39,19 @@
       "eas": {
         "projectId": "b52e7ac2-03f3-4767-aabd-164d9ef2e0ac"
       }
-    }
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "minSdkVersion": 26
+          }
+        }
+      ],
+      "expo-health-connect"
+    ]
   }
 }
