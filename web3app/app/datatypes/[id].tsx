@@ -38,10 +38,6 @@ const DataScreen: React.FC<DataScreenProps> = ({
   const [current, setCurrent] = useState(0);
   const [timeframe, setTimeframe] = useState<string>("5 hours");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [isPedometerAvailable, setIsPedometerAvailable] = useState(false);
-  const [stepCount, setStepCount] = useState(0);
-  const [permissionGranted, setPermissionGranted] = useState(false);
-
   useEffect(() => {
     if (values.length > 0) {
       setCurrent(values.at(0) ?? 0);
@@ -54,132 +50,103 @@ const DataScreen: React.FC<DataScreenProps> = ({
         PermissionsAndroid.PERMISSIONS.ACTIVITY_RECOGNITION
       );
 
-      
       return granted === PermissionsAndroid.RESULTS.GRANTED;
     } catch (err) {
       console.warn(err);
       return false;
     }
-
-    
   };
 
-  const getTodayTimeRange = () => {
-    const now = new Date();
-    const startOfToday = new Date(now);
-    startOfToday.setHours(0, 0, 0, 0); // Set to midnight of today
-  
-    return {
-      startTime: startOfToday.toISOString().split('.')[0] + "Z",
-      endTime: now.toISOString().split('.')[0] + "Z",
-    };
-  };
-
-  useEffect(() => {
-    const readSampleData = async () => {
-      const isInitialized = await initialize();
-      console.log("isInitialized:", isInitialized);
-  
-      if (isInitialized) {
-        const hasActivityPermission = await requestActivityPermission();
-        if (!hasActivityPermission) {
-          console.log("Activity recognition permission not granted.");
-          return;
-        }
-
-        
-  
-        const grantedPermissions = await requestPermission([
-          { accessType: "read", recordType: "Steps" },
-        ]);
-        
-        console.log("Full grantedPermissions response:", JSON.stringify(grantedPermissions, null, 2));
-  const timeRange = getTodayTimeRange();
-
-        if (grantedPermissions.length > 0) {
-          const result = await readRecords("Steps", {
-            timeRangeFilter: {
-              operator: "between",
-              startTime: `${timeRange.startTime}`,
-              endTime: `${timeRange.endTime}`,
-            },
-          });
-
-          console.log(timeRange.endTime)
-          console.log("Step count data:", result);
-
-          const totalCount = result.records.reduce((sum, record) => sum + record.count, 0);
-          setStepCount(totalCount)
-        } else {
-          console.log("No permissions granted.");
-        }
-      }
-    };
-  
-    readSampleData();
-  }, []);
-  
   useEffect(() => {
     fetchData();
   }, [timeframe, selectedDate]);
-  
+
   const fetchData = async () => {
     try {
       if (dataType == "Footsteps") {
         const readSampleData = async () => {
           const isInitialized = await initialize();
           console.log("isInitialized:", isInitialized);
-      
+
           if (isInitialized) {
             const hasActivityPermission = await requestActivityPermission();
             if (!hasActivityPermission) {
               console.log("Activity recognition permission not granted.");
               return;
             }
-    
-            
-      
+
             const grantedPermissions = await requestPermission([
               { accessType: "read", recordType: "Steps" },
             ]);
-            
-            console.log("Full grantedPermissions response:", JSON.stringify(grantedPermissions, null, 2));
-    
+
+            console.log(
+              "Full grantedPermissions response:",
+              JSON.stringify(grantedPermissions, null, 2)
+            );
+
             if (grantedPermissions.length > 0) {
-              console.log(selectedDate.toISOString().split('.')[0] + "Z",)
+              console.log(selectedDate.toISOString().split(".")[0] + "Z");
 
               const result = await readRecords("Steps", {
                 timeRangeFilter: {
                   operator: "between",
-                  startTime: (new Date(selectedDate.getTime() - 86400000)).toISOString().split('.')[0] + "Z",
-                  endTime: selectedDate.toISOString().split('.')[0] + "Z",
+                  startTime:
+                    new Date(selectedDate.getTime() - 86400000)
+                      .toISOString()
+                      .split(".")[0] + "Z",
+                  endTime: selectedDate.toISOString().split(".")[0] + "Z",
                 },
               });
-    
+
               console.log("Step count data:", result);
-    
-              const totalCount = result.records.reduce((sum, record) => sum + record.count, 0);
-              setStepCount(totalCount)
+
+              const totalCount = result.records.reduce(
+                (sum, record) => sum + record.count,
+                0
+              );
+
+              const lastTimestamp = result.records.reduce(
+                (max, record) =>
+                  new Date(record.endTime) > new Date(max)
+                    ? record.endTime
+                    : max,
+                result.records[0].endTime
+              );
+
+              const requestBody = {
+                topic: `${walletInfo.address}/Exercise/${id}`,
+                payload: {
+                  dataType: totalCount,
+                  timestamp: lastTimestamp,
+                },
+              };
+
+              console.log("Sending API request with:", requestBody);
+
+              const response = await axios.post(
+                "http://129.74.152.201:5100/add-medical",
+                requestBody
+              );
             } else {
               console.log("No permissions granted.");
             }
           }
         };
-      
+
         readSampleData();
-      } else {
-      const requestBody = {
+      }
+
+      const requestBody2 = {
         time: timeframe,
-        topic: `${walletInfo.address}/${category_use}/${id}`,
+        topic: `${walletInfo.address}/Exercise/${id}`,
         date: selectedDate.toISOString().split("T")[0],
-        wallet_id: walletInfo.address,
       };
 
-      console.log("Sending API request with:", requestBody);
+      console.log("Sending API request with:", requestBody2);
 
       const response = await axios.post(
         "http://129.74.152.201:5100/get-medical",
-        requestBody
+        requestBody2
       );
 
       console.log("API Response:", response.data);
@@ -189,20 +156,41 @@ const DataScreen: React.FC<DataScreenProps> = ({
         return; // Do not clear existing values
       }
 
-      const rawData = response.data.data || [];
-      const filteredData = rawData.filter(
-        (record) => record.value !== undefined && record.timestamp
-      );
+      const rawData = response.data.data;
 
-      if (filteredData.length > 0) {
-        setValues(filteredData.map((record) => parseFloat(record.value)));
-        setTimestamps(filteredData.map((record) => record.timestamp * 1000));
+      console.log("Raw Data:", rawData);
+
+      let timeLimit = new Date(selectedDate).getTime();
+
+        if (timeframe === "Last 15 mins") {
+          timeLimit  -= 15 * 60 * 1000;
+        } else if (timeframe === "Last 2 hours") {
+          timeLimit -= 2 * 60 * 60 * 1000;
+        } else if (timeframe === "Last 24 hours") {
+          timeLimit -= 24 * 60 * 60 * 1000;
+        }
+
+      if (rawData.length > 0) {
+        const newValues = rawData.map((record: any) =>
+          parseFloat(record.dataType)
+        );
+        const newTimestamps = rawData.map((record: any) =>
+          new Date(record.timestamp).getTime()
+        );
+
+        setValues(newValues);
+        setTimestamps(newTimestamps);
+
+        console.log("Fetched values:", newValues);
+        console.log("Fetched timestamps:", newTimestamps);
+      } else {
+        console.warn("No data found!");
       }
-    }
+
+      console.log(values);
     } catch (error) {
       console.error("Error fetching data", error);
     }
-  
   };
 
   const generateFullTimeRange = () => {
@@ -237,10 +225,11 @@ const DataScreen: React.FC<DataScreenProps> = ({
       return {
         formattedLabels: completeTimeRange.map((time, index) =>
           index % Math.ceil(completeTimeRange.length / 10) === 0
-            ? new Date(time).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })
+            ? new Date(time).toLocaleTimeString("en-US", {
+              hour: "2-digit",
+              minute: "2-digit",
+              timeZone: "UTC",
+          })
             : ""
         ),
         mergedValues: filledValues,
@@ -301,52 +290,50 @@ const DataScreen: React.FC<DataScreenProps> = ({
       </Text>
 
       <View style={styles.date}>
-      <IconButton
-  icon="chevron-left"
-  size={24}
-  onPress={() => {
-    const newDate = new Date(selectedDate.getTime() - 86400000);
-    setSelectedDate(newDate);
-    fetchData();
-  }}
-/>
-<Button mode="contained" buttonColor="#2196F3">
-  {selectedDate.toDateString()}
-</Button>
-<IconButton
-  icon="chevron-right"
-  size={24}
-  onPress={() => {
-    const newDate = new Date(selectedDate.getTime() + 86400000);
-    setSelectedDate(newDate);
-    fetchData();
-  }}
-/>
-
+        <IconButton
+          icon="chevron-left"
+          size={24}
+          onPress={() => {
+            const newDate = new Date(selectedDate.getTime() - 86400000);
+            setSelectedDate(newDate);
+            fetchData();
+          }}
+        />
+        <Button mode="contained" buttonColor="#2196F3">
+          {selectedDate.toDateString()}
+        </Button>
+        <IconButton
+          icon="chevron-right"
+          size={24}
+          onPress={() => {
+            const newDate = new Date(selectedDate.getTime() + 86400000);
+            setSelectedDate(newDate);
+            fetchData();
+          }}
+        />
       </View>
 
       <View style={styles.buttonRow}>
         {["1 hour", "5 hours", "24 hours"].map((item) => (
           <Button
-          key={item}
-          mode="contained"
-          style={[
-            styles.timeButton,
-            timeframe === item ? styles.activeButton : styles.inactiveButton,
-          ]}
-          labelStyle={
-            timeframe === item
-              ? styles.activeButtonText
-              : styles.inactiveButtonText
-          }
-          onPress={() => {
-            setTimeframe(item);
-            fetchData();
-          }}
-        >
-          {item}
-        </Button>
-        
+            key={item}
+            mode="contained"
+            style={[
+              styles.timeButton,
+              timeframe === item ? styles.activeButton : styles.inactiveButton,
+            ]}
+            labelStyle={
+              timeframe === item
+                ? styles.activeButtonText
+                : styles.inactiveButtonText
+            }
+            onPress={() => {
+              setTimeframe(item);
+              fetchData();
+            }}
+          >
+            {item}
+          </Button>
         ))}
       </View>
 
@@ -382,7 +369,7 @@ const DataScreen: React.FC<DataScreenProps> = ({
             Current {title}
           </Text>
           <Text variant="displaySmall" style={styles.valueText}>
-            {dataType === "Footsteps" ? stepCount : current} {measurement}
+            {current} {measurement}
           </Text>
         </Card>
 
@@ -391,10 +378,7 @@ const DataScreen: React.FC<DataScreenProps> = ({
             Total Steps
           </Text>
           <Text variant="displaySmall" style={styles.valueText}>
-            {dataType === "Footsteps"
-              ? stepCount
-              : values.reduce((a, b) => a + b, 0)}{" "}
-            {measurement}
+            {values.reduce((a, b) => a + b, 0)} {measurement}
           </Text>
         </Card>
       </View>
