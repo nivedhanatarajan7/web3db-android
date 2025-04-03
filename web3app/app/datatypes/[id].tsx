@@ -38,6 +38,7 @@ const DataScreen: React.FC<DataScreenProps> = ({
   const [current, setCurrent] = useState(0);
   const [timeframe, setTimeframe] = useState<string>("5 hours");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  
   useEffect(() => {
     if (values.length > 0) {
       setCurrent(values.at(0) ?? 0);
@@ -85,48 +86,61 @@ const DataScreen: React.FC<DataScreenProps> = ({
             );
 
             if (grantedPermissions.length > 0) {
-              console.log(selectedDate.toISOString().split(".")[0] + "Z");
+              
+              var time = 0;
+              
+              if (timeframe == "24 hours") {
+                time = 24 * 60 * 60 * 1000;
+              }
 
+              if (timeframe == "5 hours") {
+                time = 5 * 60 * 60 * 1000;
+              }
+
+              if (timeframe == "1 hour") {
+                time = 60 * 60 * 1000;
+              }
+              
               const result = await readRecords("Steps", {
                 timeRangeFilter: {
                   operator: "between",
                   startTime:
-                    new Date(selectedDate.getTime() - 86400000)
+                    new Date(selectedDate.getTime() - time)
                       .toISOString()
                       .split(".")[0] + "Z",
-                  endTime: selectedDate.toISOString().split(".")[0] + "Z",
+                  endTime: new Date(selectedDate.getTime())
+                  .toISOString()
+                  .split(".")[0] + "Z",
                 },
               });
+              
+              console.log(result)
 
-              console.log("Step count data:", result);
 
               const totalCount = result.records.reduce(
                 (sum, record) => sum + record.count,
                 0
               );
-
-              const lastTimestamp = result.records.reduce(
-                (max, record) =>
-                  new Date(record.endTime) > new Date(max)
-                    ? record.endTime
-                    : max,
-                result.records[0].endTime
-              );
-
+              console.log(new Date(selectedDate.getTime())
+              .toISOString()
+              .split(".")[0] + "Z")
               const requestBody = {
                 topic: `${walletInfo.address}/Exercise/${id}`,
                 payload: {
                   dataType: totalCount,
-                  timestamp: lastTimestamp,
+                  timestamp: `${new Date(selectedDate.getTime())
+                  .toISOString()
+                  .split(".")[0] + "Z"}`,
                 },
               };
-
-              console.log("Sending API request with:", requestBody);
 
               const response = await axios.post(
                 "http://129.74.152.201:5100/add-medical",
                 requestBody
               );
+
+              console.log(response.data)
+
             } else {
               console.log("No permissions granted.");
             }
@@ -142,14 +156,13 @@ const DataScreen: React.FC<DataScreenProps> = ({
         date: selectedDate.toISOString().split("T")[0],
       };
 
-      console.log("Sending API request with:", requestBody2);
 
       const response = await axios.post(
         "http://129.74.152.201:5100/get-medical",
         requestBody2
       );
 
-      console.log("API Response:", response.data);
+      console.log(response.data)
 
       if (!response.data || response.data.message === "No data available") {
         console.warn("No data received for:", timeframe);
@@ -158,130 +171,31 @@ const DataScreen: React.FC<DataScreenProps> = ({
 
       const rawData = response.data.data;
 
-      console.log("Raw Data:", rawData);
+      console.log(rawData)
 
-      let timeLimit = new Date(selectedDate).getTime();
+    if (rawData.length > 0) {
+      const newValues = rawData.map((record: any) => {
+        if (record != null) { return parseFloat(record.dataType)}
+      }
+      );
+      const newTimestamps = rawData.map((record: any) => {
+        if (record != null)  return new Date(record.timestamp).getTime()
+      }
+      );
 
-        if (timeframe === "Last 15 mins") {
-          timeLimit  -= 15 * 60 * 1000;
-        } else if (timeframe === "Last 2 hours") {
-          timeLimit -= 2 * 60 * 60 * 1000;
-        } else if (timeframe === "Last 24 hours") {
-          timeLimit -= 24 * 60 * 60 * 1000;
-        }
+    setValues(newValues);
+    setTimestamps(newTimestamps);
 
-      if (rawData.length > 0) {
-        const newValues = rawData.map((record: any) =>
-          parseFloat(record.dataType)
-        );
-        const newTimestamps = rawData.map((record: any) =>
-          new Date(record.timestamp).getTime()
-        );
-
-        setValues(newValues);
-        setTimestamps(newTimestamps);
-
-        console.log("Fetched values:", newValues);
-        console.log("Fetched timestamps:", newTimestamps);
+    console.log(values)
+    
       } else {
         console.warn("No data found!");
       }
 
-      console.log(values);
     } catch (error) {
       console.error("Error fetching data", error);
     }
   };
-
-  const generateFullTimeRange = () => {
-    const now = selectedDate.getTime();
-    let startTime = now;
-
-    if (timeframe === "1 hour") startTime -= 3600 * 1000;
-    else if (timeframe === "5 hours") startTime -= 5 * 3600 * 1000;
-    else if (timeframe === "24 hours") startTime -= 24 * 3600 * 1000;
-
-    const timeRange = [];
-    const totalPoints = 27; // Keep labels well-spaced
-    const interval = (now - startTime) / totalPoints; // Dynamic spacing
-
-    for (let t = startTime; t <= now; t += interval) {
-      timeRange.push(Math.round(t)); // Round timestamps to prevent small drifts
-    }
-
-    return timeRange;
-  };
-
-  const mergedData = () => {
-    const completeTimeRange = generateFullTimeRange();
-
-    if (values.length === 1) {
-      // If only one data point exists, place it in the middle of the time range
-      const middleIndex = Math.floor(completeTimeRange.length / 2);
-      const filledValues = completeTimeRange.map(
-        (_, index) => (index === middleIndex ? values[0] : 0) // Only set the value at one index
-      );
-
-      return {
-        formattedLabels: completeTimeRange.map((time, index) =>
-          index % Math.ceil(completeTimeRange.length / 10) === 0
-            ? new Date(time).toLocaleTimeString("en-US", {
-              hour: "2-digit",
-              minute: "2-digit",
-              timeZone: "UTC",
-          })
-            : ""
-        ),
-        mergedValues: filledValues,
-      };
-    }
-
-    // Normal case when multiple data points exist
-    const mergedValues = completeTimeRange.map((time) => {
-      const closestIndex = timestamps.findIndex(
-        (t) => Math.abs(t - time) <= 30 * 60 * 1000
-      );
-      return closestIndex !== -1 ? values[closestIndex] : 0;
-    });
-
-    const labelInterval = Math.ceil(completeTimeRange.length / 10);
-    const formattedLabels = completeTimeRange.map((time, index) =>
-      index % labelInterval === 0
-        ? new Date(time).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          })
-        : ""
-    );
-
-    return { formattedLabels, mergedValues };
-  };
-
-  const fillMissingData = (timestamps: number[], values: number[]) => {
-    if (timestamps.length === 0) return { timestamps: [], values: [] };
-
-    const filledTimestamps: number[] = [];
-    const filledValues: number[] = [];
-
-    const startTime = timestamps[0];
-    const endTime = timestamps[timestamps.length - 1];
-    const interval = (endTime - startTime) / (timestamps.length - 1) || 60000;
-
-    for (let time = startTime; time <= endTime; time += interval) {
-      const index = timestamps.indexOf(time);
-      if (index !== -1) {
-        filledTimestamps.push(time);
-        filledValues.push(values[index]);
-      } else {
-        filledTimestamps.push(time);
-        filledValues.push(0);
-      }
-    }
-
-    return { timestamps: filledTimestamps, values: filledValues };
-  };
-
-  const { formattedLabels, mergedValues } = mergedData();
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
