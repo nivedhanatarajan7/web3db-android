@@ -58,33 +58,6 @@ const CardContainer: React.FC<CardContainerProps> = ({
     const [loading, setLoading] = useState(false);
     const [cards, setCards] = useState<Card[]>([]);
 
-  const addDataType = async () => {
-    const categoryToUse = customCategory ? newCategory : selectedCategory;
-    const newEntry = {
-      wallet_id: walletInfo.address,
-      device_id: `${walletInfo.address}/${categoryToUse}/${newDataType}`,
-      name: newDataType,
-      category: categoryToUse,
-      measurement_unit: measurement,
-    };
-    console.log(`${walletInfo.address}/data_type`);
-
-    try {
-      const response = await fetch("http://129.74.152.201:5100/add-device", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newEntry),
-      });
-
-      const responseData = await response.json(); // Read response
-
-      window.location.reload();
-
-    } catch {
-      console.log("Error adding data");
-    }
-  };
-
   useEffect(() => {
     fetchDataTypes();
   }, []);
@@ -151,26 +124,6 @@ const CardContainer: React.FC<CardContainerProps> = ({
     setNewSubText("");
   };
 
-  const handleAddCard = async () => {
-    await addDataType();
-    const categoryToUse = customCategory ? newCategory : selectedCategory;
-    const newItems = itemsList.filter((item) => item.isActive);
-
-    newItems.push({
-      isActive: true,
-      category: categoryToUse,
-      name: newDataType,
-      measurement: measurement,
-    });
-    newItems.push({
-      isActive: false,
-      category: categoryToUse,
-      name: "Create New Card",
-      measurement: "Insert Data",
-    });
-    setItemsList(newItems);
-    handleCloseModal();
-  };
 
   return (
     <View style={styles.innerContainer}>
@@ -274,12 +227,6 @@ const CardContainer: React.FC<CardContainerProps> = ({
                 title="Cancel"
                 onPress={() => setModalVisible(false)}
                 color="gray"
-              />
-              <Button
-                title={loading ? "Adding..." : "Add"}
-                onPress={handleAddCard}
-                color="#2196F3"
-                disabled={loading}
               />
             </View>
           </View>

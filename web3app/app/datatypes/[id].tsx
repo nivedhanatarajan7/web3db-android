@@ -29,9 +29,7 @@ const DataScreen: React.FC<DataScreenProps> = ({
 
   const { walletInfo } = useAuth();
   const id = params.name as string;
-  console.log(id)
   const category_use = params.id as string;
-  console.log(category_use)
 
   const measurementUnit = params.measurementUnit as string;
   const title = id?.replace(/-/g, " ") || "Unknown"; // Format for display
@@ -131,12 +129,12 @@ const DataScreen: React.FC<DataScreenProps> = ({
 
               result.records.forEach(async (record) => {
                 const containsSpecificData = responsefromWeb.data.some(
-                  (item : any) =>
+                  (item: any) =>
                     item.dataType == record.count &&
                     item.timestamp == record.endTime
                 );
 
-                console.log("Hi" + record.endTime)
+                console.log("Hi" + record.endTime);
                 if (!containsSpecificData) {
                   const requestBody = {
                     topic: `${walletInfo.address}/${category_use}/${id}`,
@@ -166,12 +164,10 @@ const DataScreen: React.FC<DataScreenProps> = ({
         date: selectedDate.toISOString().split("T")[0],
       };
 
-
       const response = await axios.post(
         "http://129.74.152.201:5100/get-medical",
         requestBody2
       );
-
 
       if (!response.data || response.data.message === "No data available") {
         console.warn("No data received for:", timeframe);

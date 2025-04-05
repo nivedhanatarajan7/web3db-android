@@ -28,11 +28,6 @@ function AppNavigation() {
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="+not-found" />
-      <Stack.Screen name="heart" />
-      <Stack.Screen name="bp" />
-      <Stack.Screen name="exercise" />
-      <Stack.Screen name="sleep" />
-      <Stack.Screen name="resprate" />
       <Stack.Screen name="DataTypeScreen"/>
 
     </Stack>

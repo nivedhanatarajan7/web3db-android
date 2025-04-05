@@ -42,7 +42,7 @@ const DevicesScreen = () => {
     const addDevice = async () => {
       const newEntry = {
         wallet_id: walletInfo.address,
-        device_id: `${deviceId}`,
+        device_id: `${walletInfo.address}/${deviceId}/${category}/${name}`,
         name: name,
         category: category,
         measurement_unit: measurement,
@@ -58,8 +58,6 @@ const DevicesScreen = () => {
   
         const responseData = await response.json(); // Read response
         console.log(response);
-
-        window.location.reload();
       } catch {
         console.log("Error adding data");
       }
@@ -108,8 +106,9 @@ const DevicesScreen = () => {
         ) : (
           <FlatList
             data={devices}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => item.device_id}
             renderItem={({ item }) => (
+
               <Card style={styles.deviceCard}>
                 <Text style={styles.deviceText}>{item.device_id}</Text>
               </Card>
