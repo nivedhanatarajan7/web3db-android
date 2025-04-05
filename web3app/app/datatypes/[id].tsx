@@ -28,9 +28,12 @@ const DataScreen: React.FC<DataScreenProps> = ({
   const params = useLocalSearchParams();
 
   const { walletInfo } = useAuth();
-  const id = dataType as string;
-  const category_use = category as string;
-  const measurementUnit = measurement as string;
+  const id = params.name as string;
+  console.log(id)
+  const category_use = params.id as string;
+  console.log(category_use)
+
+  const measurementUnit = params.measurementUnit as string;
   const title = id?.replace(/-/g, " ") || "Unknown"; // Format for display
 
   const [values, setValues] = useState<number[]>([]);
@@ -38,7 +41,7 @@ const DataScreen: React.FC<DataScreenProps> = ({
   const [current, setCurrent] = useState(0);
   const [timeframe, setTimeframe] = useState<string>("5 hours");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  
+
   useEffect(() => {
     if (values.length > 0) {
       setCurrent(values.at(0) ?? 0);
@@ -64,10 +67,9 @@ const DataScreen: React.FC<DataScreenProps> = ({
 
   const fetchData = async () => {
     try {
-      if (dataType == "Footsteps") {
+      if (title == "Footsteps") {
         const readSampleData = async () => {
           const isInitialized = await initialize();
-          console.log("isInitialized:", isInitialized);
 
           if (isInitialized) {
             const hasActivityPermission = await requestActivityPermission();
@@ -80,15 +82,9 @@ const DataScreen: React.FC<DataScreenProps> = ({
               { accessType: "read", recordType: "Steps" },
             ]);
 
-            console.log(
-              "Full grantedPermissions response:",
-              JSON.stringify(grantedPermissions, null, 2)
-            );
-
             if (grantedPermissions.length > 0) {
-              
               var time = 0;
-              
+
               if (timeframe == "24 hours") {
                 time = 24 * 60 * 60 * 1000;
               }
@@ -100,7 +96,7 @@ const DataScreen: React.FC<DataScreenProps> = ({
               if (timeframe == "1 hour") {
                 time = 60 * 60 * 1000;
               }
-              
+
               const result = await readRecords("Steps", {
                 timeRangeFilter: {
                   operator: "between",
@@ -108,39 +104,53 @@ const DataScreen: React.FC<DataScreenProps> = ({
                     new Date(selectedDate.getTime() - time)
                       .toISOString()
                       .split(".")[0] + "Z",
-                  endTime: new Date(selectedDate.getTime())
-                  .toISOString()
-                  .split(".")[0] + "Z",
+                  endTime:
+                    new Date(selectedDate.getTime())
+                      .toISOString()
+                      .split(".")[0] + "Z",
                 },
               });
-              
-              console.log(result)
 
+              // const requestBody2 = {
+              //   time: timeframe,
+              //   topic: `${walletInfo.address}/Exercise/${id}`,
+              //   date: new Date(selectedDate)
+              //   .toISOString()
+              //   .split("T")[0],
+              // };
 
-              const totalCount = result.records.reduce(
-                (sum, record) => sum + record.count,
-                0
-              );
-              console.log(new Date(selectedDate.getTime())
-              .toISOString()
-              .split(".")[0] + "Z")
-              const requestBody = {
-                topic: `${walletInfo.address}/Exercise/${id}`,
-                payload: {
-                  dataType: totalCount,
-                  timestamp: `${new Date(selectedDate.getTime())
-                  .toISOString()
-                  .split(".")[0] + "Z"}`,
-                },
+              const requestBody2 = {
+                time: "all",
+                topic: `${walletInfo.address}/${category_use}/${id}`,
+                date: "all",
               };
-
-              const response = await axios.post(
-                "http://129.74.152.201:5100/add-medical",
-                requestBody
+              const responsefromWeb = await axios.post(
+                "http://129.74.152.201:5100/get-medical",
+                requestBody2
               );
 
-              console.log(response.data)
+              result.records.forEach(async (record) => {
+                const containsSpecificData = responsefromWeb.data.some(
+                  (item : any) =>
+                    item.dataType == record.count &&
+                    item.timestamp == record.endTime
+                );
 
+                console.log("Hi" + record.endTime)
+                if (!containsSpecificData) {
+                  const requestBody = {
+                    topic: `${walletInfo.address}/${category_use}/${id}`,
+                    payload: {
+                      dataType: record.count,
+                      timestamp: record.endTime,
+                    },
+                  };
+                  const response = await axios.post(
+                    "http://129.74.152.201:5100/add-medical",
+                    requestBody
+                  );
+                }
+              });
             } else {
               console.log("No permissions granted.");
             }
@@ -162,36 +172,31 @@ const DataScreen: React.FC<DataScreenProps> = ({
         requestBody2
       );
 
-      console.log(response.data)
 
       if (!response.data || response.data.message === "No data available") {
         console.warn("No data received for:", timeframe);
-        return; // Do not clear existing values
+        setValues([]); // Do not clear existing values
+        setCurrent(0);
       }
 
       const rawData = response.data.data;
 
-      console.log(rawData)
+      if (rawData && rawData.length > 0) {
+        const newValues = rawData.map((record: any) => {
+          if (record != null) {
+            return parseFloat(record.dataType);
+          }
+        });
+        const newTimestamps = rawData.map((record: any) => {
+          if (record != null) return new Date(record.timestamp).getTime();
+        });
+        setCurrent(values.at(0) ?? 0);
 
-    if (rawData.length > 0) {
-      const newValues = rawData.map((record: any) => {
-        if (record != null) { return parseFloat(record.dataType)}
-      }
-      );
-      const newTimestamps = rawData.map((record: any) => {
-        if (record != null)  return new Date(record.timestamp).getTime()
-      }
-      );
-
-    setValues(newValues);
-    setTimestamps(newTimestamps);
-
-    console.log(values)
-    
+        setValues(newValues);
+        setTimestamps(newTimestamps);
       } else {
         console.warn("No data found!");
       }
-
     } catch (error) {
       console.error("Error fetching data", error);
     }
@@ -262,7 +267,7 @@ const DataScreen: React.FC<DataScreenProps> = ({
                 })
               : "",
           }))}
-          width={width * 0.5}
+          width={width * 0.7}
           height={150}
           color="rgba(0, 123, 255, 1)"
           yAxisTextStyle={{ color: "#000000" }}
@@ -283,16 +288,16 @@ const DataScreen: React.FC<DataScreenProps> = ({
             Current {title}
           </Text>
           <Text variant="displaySmall" style={styles.valueText}>
-            {current} {measurement}
+            {current} {measurementUnit}
           </Text>
         </Card>
 
         <Card style={styles.valueCard}>
           <Text variant="titleMedium" style={styles.valueTitle}>
-            Total Steps
+            Total {title}
           </Text>
           <Text variant="displaySmall" style={styles.valueText}>
-            {values.reduce((a, b) => a + b, 0)} {measurement}
+            {values.reduce((a, b) => a + b, 0)} {measurementUnit}
           </Text>
         </Card>
       </View>

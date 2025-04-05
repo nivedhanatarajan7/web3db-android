@@ -194,7 +194,7 @@ const CardContainer: React.FC<CardContainerProps> = ({
                   ? item.isActive
                     ? () => onEditCardPress(index)
                     : onEditAddCardPress
-                  : () => onCardPress(item.name, item.measurement)
+                  : () => onCardPress(item.category, item.name, item.measurement)
               }
               isEditing={isEditing}
               isActive={item.isActive}

@@ -8,7 +8,7 @@ type MaterialCardProps = {
   subText?: string;
   icon?: string;
   color?: string;
-  onPress: (mainText: string, subText: string) => void;
+  onPress: (category: string, mainText: string, subText: string) => void;
   isEditing: boolean;
   isActive?: boolean;
 };

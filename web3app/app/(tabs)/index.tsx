@@ -134,15 +134,13 @@ export default function HomeAssistant() {
     fetchDataTypes();
   }, []);
 
-  const handleCardPress = (category:string, mainText: string, subText: string) => {
+  const handleCardPress = (category: string, mainText: string, subText: string) => {    
     setSelectedCard({ category, mainText, subText });
-    setModalVisible(true);
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 10, // Instant duration
-      useNativeDriver: true,
-    }).start();
-  };
+  const encdoedCategory = encodeURIComponent(category?.trim());
+  const encodedMainText = encodeURIComponent(mainText?.trim());
+  const encodedSubText = encodeURIComponent(subText?.trim());
+  router.push(`/datatypes/${encdoedCategory}?name=${encodedMainText}&measurementUnit=${encodedSubText}`);
+};
 
   const handleCloseModal = () => {
     Animated.timing(fadeAnim, {
@@ -199,9 +197,9 @@ export default function HomeAssistant() {
     <ScrollView contentContainerStyle={styles.scrollContainer}>
       <View style={styles.container}>
         <View style={styles.headerContainer}>
-          <Text style={styles.header}>Welcome to Web3DB App, User!</Text>
+          <Text style={styles.header}>Welcome to Web3DB App!</Text>
           <View style={styles.buttonContainer}>
-            <TouchableOpacity
+            {/* <TouchableOpacity
               style={[
                 styles.addButton,
                 !isEditing && styles.hidden,
@@ -213,14 +211,14 @@ export default function HomeAssistant() {
               onMouseLeave={handleMouseLeave}
             >
               <Text style={styles.addButtonText}>Add New Container</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.editButton} onPress={handleEditPress}>
+            </TouchableOpacity> */}
+            {/* <TouchableOpacity style={styles.editButton} onPress={handleEditPress}>
               <MaterialCommunityIcons
                 name={isEditing ? "check" : "pencil"}
                 size={24}
                 color="#fff"
               />
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
         </View>
         <View style={styles.outerContainer}>
@@ -229,7 +227,9 @@ export default function HomeAssistant() {
               key={categoryName}
               title={categoryName}
               items={items} // Pass items array to CardContainer
-              onCardPress={handleCardPress}
+              onCardPress={
+                handleCardPress
+              }
               isEditing={isEditing}
             />
           ))}
@@ -254,8 +254,8 @@ export default function HomeAssistant() {
                 <DataScreen
                   category={selectedCard.category}
 
-                  dataType={selectedCard.category}
-                  measurement={selectedCard.mainText}
+                  dataType={selectedCard.mainText}
+                  measurement={selectedCard.subText}
                 />
               </View>
             </Animated.View>
@@ -297,7 +297,7 @@ export default function HomeAssistant() {
 }
 
 const styles = StyleSheet.create({
-  scrollContainer: { flexGrow: 1, paddingBottom: 20 },
+  scrollContainer: { flexGrow: 1, paddingBottom: 20, paddingTop: 40},
   container: { flex: 1, backgroundColor: "#f5f5f5", padding: 20 },
   headerContainer: { flexDirection: "row", justifyContent: "space-between", width: "100%", marginBottom: 20 },
   header: { fontSize: 20, fontWeight: "bold", flex: 1 },
