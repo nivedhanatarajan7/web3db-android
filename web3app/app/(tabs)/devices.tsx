@@ -15,7 +15,12 @@ const DevicesScreen = () => {
   const [devices, setDevices] = useState([]);
   const router = useRouter();
   const { walletInfo, logout } = useAuth();
+  const [refreshTrigger, setRefreshTrigger] = useState(false);
 
+  useEffect(() => {
+    getDevice();
+  }, [refreshTrigger]); // Reruns when `refreshTrigger` toggles
+  
 
   useEffect(() => {
     getDevice();
@@ -58,6 +63,9 @@ const DevicesScreen = () => {
   
         const responseData = await response.json(); // Read response
         console.log(response);
+
+        setRefreshTrigger(prev => !prev);
+
       } catch {
         console.log("Error adding data");
       }
@@ -72,7 +80,7 @@ const DevicesScreen = () => {
         <Text style={styles.formlabel}>Device ID</Text>
         <TextInput
           style={styles.input}
-          placeholder="Enter Device ID (ex. Heart Rate, Blood Pressure)"
+          placeholder="Enter Device ID (ex. Thermostat)"
           value={deviceId}
           onChangeText={setDeviceId}
         />

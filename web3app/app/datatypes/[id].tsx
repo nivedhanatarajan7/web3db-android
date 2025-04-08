@@ -1,5 +1,12 @@
-import React, { useState, useEffect } from "react";
-import { View, ScrollView, StyleSheet, Dimensions, Alert } from "react-native";
+import React, { useState, useEffect, useRef } from "react";
+import {
+  View,
+  ScrollView,
+  StyleSheet,
+  Dimensions,
+  Alert,
+  AppState,
+} from "react-native";
 import axios from "axios";
 import { Card, Text, Button, IconButton } from "react-native-paper";
 import { useLocalSearchParams } from "expo-router";
@@ -11,6 +18,8 @@ import {
   readRecords,
 } from "react-native-health-connect";
 import { PermissionsAndroid } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { AppStateStatus } from "react-native";
 
 const { width } = Dimensions.get("window");
 
@@ -39,12 +48,55 @@ const DataScreen: React.FC<DataScreenProps> = ({
   const [current, setCurrent] = useState(0);
   const [timeframe, setTimeframe] = useState<string>("5 hours");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [lastOpened, setLastOpened] = useState<Date | null>(null);
+
+  const useAppLastClosedTracker = () => {
+    const appState = useRef<AppStateStatus>(AppState.currentState);
+
+    useEffect(() => {
+      const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+        if (
+          appState.current === "inactive" ||
+          appState.current === "background"
+        ) {
+          // Save the time when the app is opened (active state)
+          if (nextAppState === "active") {
+            const currentTime = new Date().toISOString();
+            await AsyncStorage.setItem("lastOpened", currentTime);
+          }
+        }
+      
+        appState.current = nextAppState;
+      };
+      
+
+      const subscription = AppState.addEventListener(
+        "change",
+        handleAppStateChange
+      );
+
+      return () => subscription.remove();
+    }, []);
+  };
 
   useEffect(() => {
     if (values.length > 0) {
       setCurrent(values.at(0) ?? 0);
     }
   }, [values]);
+
+  useAppLastClosedTracker();
+
+  useEffect(() => {
+    const fetchLastOpened = async () => {
+      const saved = await AsyncStorage.getItem("lastOpened");
+      if (saved) {
+        setLastOpened(new Date(saved));
+      }
+    };
+    fetchLastOpened();
+  }, []);
+  
 
   const requestActivityPermission = async () => {
     try {
@@ -60,8 +112,10 @@ const DataScreen: React.FC<DataScreenProps> = ({
   };
 
   useEffect(() => {
-    fetchData();
-  }, [timeframe, selectedDate]);
+    if (lastOpened) {
+      fetchData();
+    }
+  }, [timeframe, selectedDate, lastOpened]);
 
   const fetchData = async () => {
     try {
@@ -81,25 +135,13 @@ const DataScreen: React.FC<DataScreenProps> = ({
             ]);
 
             if (grantedPermissions.length > 0) {
-              var time = 0;
 
-              if (timeframe == "24 hours") {
-                time = 24 * 60 * 60 * 1000;
-              }
-
-              if (timeframe == "5 hours") {
-                time = 5 * 60 * 60 * 1000;
-              }
-
-              if (timeframe == "1 hour") {
-                time = 60 * 60 * 1000;
-              }
-
+            
               const result = await readRecords("Steps", {
                 timeRangeFilter: {
                   operator: "between",
                   startTime:
-                    new Date(selectedDate.getTime() - time)
+                    new Date(lastOpened.getTime())
                       .toISOString()
                       .split(".")[0] + "Z",
                   endTime:
@@ -109,45 +151,31 @@ const DataScreen: React.FC<DataScreenProps> = ({
                 },
               });
 
-              // const requestBody2 = {
-              //   time: timeframe,
-              //   topic: `${walletInfo.address}/Exercise/${id}`,
-              //   date: new Date(selectedDate)
-              //   .toISOString()
-              //   .split("T")[0],
-              // };
-
-              const requestBody2 = {
-                time: "all",
-                topic: `${walletInfo.address}/${category_use}/${id}`,
-                date: "all",
-              };
-              const responsefromWeb = await axios.post(
-                "http://129.74.152.201:5100/get-medical",
-                requestBody2
-              );
-
+              console.log(result.records)
               result.records.forEach(async (record) => {
-                const containsSpecificData = responsefromWeb.data.some(
-                  (item: any) =>
-                    item.dataType == record.count &&
-                    item.timestamp == record.endTime
-                );
 
-                console.log("Hi" + record.endTime);
-                if (!containsSpecificData) {
                   const requestBody = {
-                    topic: `${walletInfo.address}/${category_use}/${id}`,
+                    device_id: `${walletInfo.address}/${category_use}/${id}`,
+                    start_time:
+                    new Date(lastOpened.getTime())
+                      .toISOString()
+                      .split(".")[0] + "Z",
+                  end_time:
+                    new Date(selectedDate.getTime())
+                      .toISOString()
+                      .split(".")[0] + "Z",
                     payload: {
                       dataType: record.count,
-                      timestamp: record.endTime,
                     },
                   };
+
+                  console.log(requestBody)
+
                   const response = await axios.post(
                     "http://129.74.152.201:5100/add-medical",
                     requestBody
                   );
-                }
+                console.log(response.data)
               });
             } else {
               console.log("No permissions granted.");
@@ -158,17 +186,35 @@ const DataScreen: React.FC<DataScreenProps> = ({
         readSampleData();
       }
 
-      const requestBody2 = {
-        time: timeframe,
-        topic: `${walletInfo.address}/Exercise/${id}`,
-        date: selectedDate.toISOString().split("T")[0],
-      };
+      var time = 0;
 
+      if (timeframe == "24 hours") {
+        time = 24 * 60 * 60 * 1000;
+      }
+
+      if (timeframe == "5 hours") {
+        time = 5 * 60 * 60 * 1000;
+      }
+
+      if (timeframe == "1 hour") {
+        time = 60 * 60 * 1000;
+      }
+
+      const requestBody2 = {
+        start_time:
+          new Date(selectedDate.getTime() - time).toISOString().split(".")[0] +
+          "Z",
+        device_id: `${walletInfo.address}/${category_use}/${id}`,
+        end_time:
+          new Date(selectedDate.getTime()).toISOString().split(".")[0] + "Z",
+      };
+      console.log(requestBody2);
       const response = await axios.post(
         "http://129.74.152.201:5100/get-medical",
         requestBody2
       );
 
+      console.log(response.data)
       if (!response.data || response.data.message === "No data available") {
         console.warn("No data received for:", timeframe);
         setValues([]); // Do not clear existing values
@@ -205,27 +251,31 @@ const DataScreen: React.FC<DataScreenProps> = ({
       </Text>
 
       <View style={styles.date}>
-        <IconButton
-          icon="chevron-left"
-          size={24}
-          onPress={() => {
-            const newDate = new Date(selectedDate.getTime() - 86400000);
-            setSelectedDate(newDate);
-            fetchData();
-          }}
-        />
-        <Button mode="contained" buttonColor="#2196F3">
-          {selectedDate.toDateString()}
-        </Button>
-        <IconButton
-          icon="chevron-right"
-          size={24}
-          onPress={() => {
-            const newDate = new Date(selectedDate.getTime() + 86400000);
-            setSelectedDate(newDate);
-            fetchData();
-          }}
-        />
+      <IconButton
+  icon="chevron-left"
+  size={24}
+  onPress={() => {
+    const newDate = new Date(selectedDate.getTime() - 86400000); // Go back one day
+    setSelectedDate(newDate);
+    setValues([]);  // Clear the existing values
+    setTimestamps([]);  // Clear the existing timestamps
+  }}
+/>
+
+<Button mode="contained" buttonColor="#2196F3">
+  {selectedDate.toDateString()}
+</Button>
+
+<IconButton
+  icon="chevron-right"
+  size={24}
+  onPress={() => {
+    const newDate = new Date(selectedDate.getTime() + 86400000); // Go forward one day
+    setSelectedDate(newDate);
+    setValues([]);  // Clear the existing values
+    setTimestamps([]);  // Clear the existing timestamps
+  }}
+/>
       </View>
 
       <View style={styles.buttonRow}>

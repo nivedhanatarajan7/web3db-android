@@ -19,6 +19,7 @@ import { useRouter } from "expo-router";
 import axios from "axios";
 import { useAuth } from "../AuthContext";
 import DataScreen from "../datatypes/[id]"; 
+import { useFocusEffect } from '@react-navigation/native';
 
 const { width, height } = Dimensions.get("window");
 
@@ -90,29 +91,26 @@ export default function HomeAssistant() {
 
       // Merge categories correctly
       const groupedData = responseData.reduce((acc, item) => {
-        if (!item.category || !item.name) {
-          console.warn("Skipping item with missing category or name:", item);
-          return acc;
-        }
-
-        // Ensure Health category only appears once and includes HR + BP
+        if (!item.category || !item.name) return acc;
+      
         if (!acc[item.category]) acc[item.category] = [];
-
-        // Avoid adding duplicate entries
-        const exists = acc[item.category].some(
-          (existing) => existing.name === item.name
-        );
+      
+        const exists = acc[item.category].some(existing => existing.name === item.name);
         if (!exists) {
-          acc[item.category].push({
-            category: item.category,
-            name: item.name,
-            measurement: item.measurement_unit || "N/A",
-            isActive: true, // Default to false
-          });
+          acc[item.category] = [
+            ...acc[item.category],
+            {
+              category: item.category,
+              name: item.name,
+              measurement: item.measurement_unit || "N/A",
+              isActive: true,
+            },
+          ];
         }
-
+      
         return acc;
       }, {});
+      
 
       console.log("Grouped Data:", groupedData);
       setCategories(groupedData);
@@ -129,11 +127,15 @@ export default function HomeAssistant() {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchDataTypes();
-  }, []);
-
+  useFocusEffect(
+    React.useCallback(() => {
+      const fetch = async () => {
+        await fetchDataTypes();
+      };
+  
+      fetch();
+    }, [])
+  );
   const handleCardPress = (category: string, mainText: string, subText: string) => {    
     setSelectedCard({ category, mainText, subText });
   const encdoedCategory = encodeURIComponent(category?.trim());
