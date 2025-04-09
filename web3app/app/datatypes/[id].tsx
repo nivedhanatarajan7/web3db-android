@@ -20,6 +20,7 @@ import {
 import { PermissionsAndroid } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AppStateStatus } from "react-native";
+import { useNavigation } from '@react-navigation/native';
 
 const { width } = Dimensions.get("window");
 
@@ -35,6 +36,14 @@ const DataScreen: React.FC<DataScreenProps> = ({
   measurement,
 }) => {
   const params = useLocalSearchParams();
+  const navigation = useNavigation();
+
+  useEffect(() => {
+    // Dynamically set the header title
+    navigation.setOptions({
+      headerTitle: 'Overview', // Set the header to "Overview"
+    });
+  }, [navigation]);
 
   const { walletInfo } = useAuth();
   const id = params.name as string;
@@ -49,54 +58,55 @@ const DataScreen: React.FC<DataScreenProps> = ({
   const [timeframe, setTimeframe] = useState<string>("5 hours");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [lastOpened, setLastOpened] = useState<Date | null>(null);
+const hasFetchedRef = useRef(false);
 
-  const useAppLastClosedTracker = () => {
-    const appState = useRef<AppStateStatus>(AppState.currentState);
+const useAppLastClosedTracker = () => {
+  const appState = useRef<AppStateStatus>(AppState.currentState);
 
-    useEffect(() => {
-      const handleAppStateChange = async (nextAppState: AppStateStatus) => {
-        if (
-          appState.current === "inactive" ||
-          appState.current === "background"
-        ) {
-          // Save the time when the app is opened (active state)
-          if (nextAppState === "active") {
-            const currentTime = new Date().toISOString();
-            await AsyncStorage.setItem("lastOpened", currentTime);
-          }
+  useEffect(() => {
+    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+      if (
+        appState.current === "inactive" ||
+        appState.current === "background"
+      ) {
+        // Save the time when the app is opened (active state)
+        if (nextAppState === "active") {
+          const currentTime = new Date().toISOString();
+          await AsyncStorage.setItem("lastOpened", currentTime);
         }
-      
-        appState.current = nextAppState;
-      };
-      
-
-      const subscription = AppState.addEventListener(
-        "change",
-        handleAppStateChange
-      );
-
-      return () => subscription.remove();
-    }, []);
-  };
-
-  useEffect(() => {
-    if (values.length > 0) {
-      setCurrent(values.at(0) ?? 0);
-    }
-  }, [values]);
-
-  useAppLastClosedTracker();
-
-  useEffect(() => {
-    const fetchLastOpened = async () => {
-      const saved = await AsyncStorage.getItem("lastOpened");
-      if (saved) {
-        setLastOpened(new Date(saved));
       }
+    
+      appState.current = nextAppState;
     };
-    fetchLastOpened();
+    
+
+    const subscription = AppState.addEventListener(
+      "change",
+      handleAppStateChange
+    );
+
+    return () => subscription.remove();
   }, []);
-  
+};
+
+useEffect(() => {
+  if (values.length > 0) {
+    setCurrent(values.at(0) ?? 0);
+  }
+}, [values]);
+
+useAppLastClosedTracker();
+
+useEffect(() => {
+  const fetchLastOpened = async () => {
+    const saved = await AsyncStorage.getItem("lastOpened");
+    if (saved) {
+      setLastOpened(new Date(saved));
+    }
+  };
+  fetchLastOpened();
+}, []);
+
 
   const requestActivityPermission = async () => {
     try {
@@ -110,20 +120,21 @@ const DataScreen: React.FC<DataScreenProps> = ({
       return false;
     }
   };
-
   useEffect(() => {
     if (lastOpened) {
       fetchData();
+      hasFetchedRef.current = true; // Mark it as fetched so it doesn't re-fetch
     }
   }, [timeframe, selectedDate, lastOpened]);
-
+  
   const fetchData = async () => {
     try {
       if (title == "Footsteps") {
         const readSampleData = async () => {
           const isInitialized = await initialize();
 
-          if (isInitialized) {
+          if (isInitialized && !hasFetchedRef.current) {
+            console.log(hasFetchedRef)
             const hasActivityPermission = await requestActivityPermission();
             if (!hasActivityPermission) {
               console.log("Activity recognition permission not granted.");
@@ -141,7 +152,7 @@ const DataScreen: React.FC<DataScreenProps> = ({
                 timeRangeFilter: {
                   operator: "between",
                   startTime:
-                    new Date(lastOpened.getTime())
+                    new Date(lastOpened.getTime() - 40 * 60 * 60 *1000)
                       .toISOString()
                       .split(".")[0] + "Z",
                   endTime:
@@ -151,31 +162,31 @@ const DataScreen: React.FC<DataScreenProps> = ({
                 },
               });
 
-              console.log(result.records)
               result.records.forEach(async (record) => {
 
                   const requestBody = {
                     device_id: `${walletInfo.address}/${category_use}/${id}`,
                     start_time:
-                    new Date(lastOpened.getTime())
+                    new Date(new Date(record.startTime).getTime())
                       .toISOString()
                       .split(".")[0] + "Z",
                   end_time:
-                    new Date(selectedDate.getTime())
+                    new Date(new Date(record.endTime).getTime())
                       .toISOString()
                       .split(".")[0] + "Z",
                     payload: {
                       dataType: record.count,
+                      timestamp: new Date(new Date(record.endTime).getTime())
+                      .toISOString()
+                      .split(".")[0] + "Z",
                     },
                   };
 
-                  console.log(requestBody)
 
                   const response = await axios.post(
                     "http://129.74.152.201:5100/add-medical",
                     requestBody
                   );
-                console.log(response.data)
               });
             } else {
               console.log("No permissions granted.");
@@ -217,7 +228,6 @@ const DataScreen: React.FC<DataScreenProps> = ({
       console.log(response.data)
       if (!response.data || response.data.message === "No data available") {
         console.warn("No data received for:", timeframe);
-        setValues([]); // Do not clear existing values
         setCurrent(0);
       }
 
@@ -232,10 +242,20 @@ const DataScreen: React.FC<DataScreenProps> = ({
         const newTimestamps = rawData.map((record: any) => {
           if (record != null) return new Date(record.timestamp).getTime();
         });
-        setCurrent(values.at(0) ?? 0);
+        
+        const sortedData = newValues
+        .map((value, index) => ({
+          value,
+          timestamp: newTimestamps[index],
+        }))
+        .sort((a, b) => a.timestamp - b.timestamp); // Sort by timestamp
 
-        setValues(newValues);
-        setTimestamps(newTimestamps);
+      const sortedValues = sortedData.map((data) => data.value);
+      const sortedTimestamps = sortedData.map((data) => data.timestamp);
+
+      setCurrent(sortedValues.at(0) ?? 0);
+      setValues(sortedValues);
+      setTimestamps(sortedTimestamps);
       } else {
         console.warn("No data found!");
       }
@@ -293,9 +313,11 @@ const DataScreen: React.FC<DataScreenProps> = ({
                 : styles.inactiveButtonText
             }
             onPress={() => {
-              setTimeframe(item);
-              fetchData();
+              setTimeframe(item); // State change will trigger useEffect
+              setValues([]);
+              setTimestamps([]);
             }}
+            
           >
             {item}
           </Button>
@@ -306,13 +328,14 @@ const DataScreen: React.FC<DataScreenProps> = ({
         <LineChart
           data={values.map((value, index) => ({
             value,
-            label: timestamps[index]
-              ? new Date(timestamps[index]).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : "",
+            key: timestamps[index]?.toString() || index.toString(),
+            label:
+              index % 5 === 0 && timestamps[index]
+                ? new Date(timestamps[index]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                : '',
           }))}
+          
+          
           width={width * 0.7}
           height={150}
           color="rgba(0, 123, 255, 1)"
@@ -329,14 +352,14 @@ const DataScreen: React.FC<DataScreenProps> = ({
       </View>
 
       <View style={styles.valueCardContainer}>
-        <Card style={styles.valueCard}>
+        {/* <Card style={styles.valueCard}>
           <Text variant="titleMedium" style={styles.valueTitle}>
             Current {title}
           </Text>
           <Text variant="displaySmall" style={styles.valueText}>
             {current} {measurementUnit}
           </Text>
-        </Card>
+        </Card> */}
 
         <Card style={styles.valueCard}>
           <Text variant="titleMedium" style={styles.valueTitle}>
@@ -415,7 +438,7 @@ const styles = StyleSheet.create({
   valueCardContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-between",
+    justifyContent: "center",
     width: "100%",
   },
 

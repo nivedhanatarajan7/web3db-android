@@ -1,15 +1,20 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
-import { AlertProvider } from './AlertContext';
-import { AuthProvider, useAuth } from './AuthContext';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import LoginScreen from './login';
+import {
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider,
+} from "@react-navigation/native";
+import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
+import "react-native-reanimated";
+import { AlertProvider } from "./AlertContext";
+import { AuthProvider, useAuth } from "./AuthContext";
+import { useColorScheme } from "@/hooks/useColorScheme";
+import LoginScreen from "./login";
 import { useFonts, Roboto_400Regular } from "@expo-google-fonts/roboto";
 SplashScreen.preventAutoHideAsync();
+import { LogBox } from 'react-native';
 
 function AppNavigation() {
   const { walletInfo } = useAuth();
@@ -22,14 +27,19 @@ function AppNavigation() {
   if (!walletInfo.connected) {
     return <LoginScreen />;
   }
-  1
+  1;
 
   return (
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="+not-found" />
-      <Stack.Screen name="DataTypeScreen"/>
-
+      <Stack.Screen
+        name="DataTypeScreen"
+        options={{
+          headerShown: true,
+          title: "Data Overview",
+        }}
+      />
     </Stack>
   );
 }
@@ -49,12 +59,14 @@ export default function RootLayout() {
   if (!fontsLoaded) {
     return null;
   }
+  LogBox.ignoreAllLogs();
 
-  
   return (
     <AuthProvider>
       <AlertProvider>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <ThemeProvider
+          value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+        >
           <AppNavigation />
           <StatusBar style="auto" />
         </ThemeProvider>

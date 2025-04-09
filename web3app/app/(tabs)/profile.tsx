@@ -1,4 +1,4 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { View, Text, TextInput, StyleSheet, ScrollView, Switch, TouchableOpacity } from "react-native";
 import { Card } from "react-native-paper";
 import { MaterialCommunityIcons } from "react-native-vector-icons";
@@ -6,7 +6,11 @@ import { useAuth } from "../AuthContext";
 
 export default function ProfileScreen() {
   const { walletInfo, logout } = useAuth();
-
+  useEffect(() => {
+    if (walletInfo.connected && walletInfo.address) {
+      fetchUserProfile(walletInfo.address);
+    }
+  }, [walletInfo]);
   // Editable user information state
   const [userInfo, setUserInfo] = useState({
     Name: "Jane Doe",
@@ -18,10 +22,73 @@ export default function ProfileScreen() {
     BMI: "22.3"
   });
 
+  const fetchUserProfile = async (walletId: string) => {
+    try {
+      const response = await fetch("http://129.74.152.201:5100/get-profile", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ wallet_id: walletId }),
+      });
+  
+      const data = await response.json();
+  
+      if (response.ok && data) {
+        setUserInfo({
+          Name: data.name || "",
+          Email: data.email || "",
+          Height: data.height?.toString() || "",
+          Weight: data.weight?.toString() || "",
+          Age: data.age?.toString() || "",
+          Gender: data.gender || "",
+          BMI: data.bmi?.toString() || "",
+        });
+      } else {
+        console.warn("Profile not found or error:", data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch profile:", error);
+    }
+  };
+  
   // Handle input changes
   const handleChange = (key: string, value: string) => {
     setUserInfo({ ...userInfo, [key]: value });
   };
+
+  const saveProfile = async () => {
+    try {
+      const response = await fetch("http://129.74.152.201:5100/add-profile", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          wallet_id: walletInfo.address,
+          name: userInfo.Name,
+          email: userInfo.Email,
+          height: parseFloat(userInfo.Height),
+          weight: parseFloat(userInfo.Weight),
+          age: parseInt(userInfo.Age),
+          gender: userInfo.Gender,
+          bmi: parseFloat(userInfo.BMI),
+        }),
+      });
+  
+      const data = await response.json();
+  
+      if (response.ok) {
+        // Do nothing
+      } else {
+        alert(`Failed to save profile: ${data.message || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("Error saving profile:", error);
+      alert("An error occurred while saving your profile.");
+    }
+  };
+  
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -62,8 +129,8 @@ export default function ProfileScreen() {
               />
             </View>
           ))}
-          <TouchableOpacity style={styles.saveButton}>
-            <Text style={styles.saveButtonText}>Save Changes</Text>
+<TouchableOpacity style={styles.saveButton} onPress={saveProfile}>
+<Text style={styles.saveButtonText}>Save Changes</Text>
           </TouchableOpacity>
         </Card.Content>
       </Card>

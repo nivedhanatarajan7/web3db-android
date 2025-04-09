@@ -66,7 +66,7 @@ const styles = StyleSheet.create({
     height: 70,
     borderRadius: 20,
     // backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    backgroundColor: Colors['blue'].background,
+    backgroundColor: Colors['light'].background,
     elevation: 8, // Android shadow
     shadowColor: '#000',
     shadowOpacity: 0.1,
