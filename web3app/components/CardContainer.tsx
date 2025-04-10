@@ -28,7 +28,7 @@ type CardContainerProps = {
     name: string;
     measurement: string;
   }[];
-  onCardPress: (mainText: string, subText: string) => void;
+  onCardPress: (category: string, mainText: string, subText: string) => void;
   isEditing: boolean;
 };
 
@@ -61,6 +61,11 @@ const CardContainer: React.FC<CardContainerProps> = ({
   useEffect(() => {
     fetchDataTypes();
   }, []);
+
+  useEffect(() => {
+    setItemsList(items);
+  }, [items]);
+  
 
   const fetchDataTypes = async () => {
     try {

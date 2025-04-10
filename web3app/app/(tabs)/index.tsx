@@ -147,6 +147,8 @@ export default function HomeAssistant() {
       };
     }, [])
   );
+
+  
   
   const handleCardPress = (category: string, mainText: string, subText: string) => {    
     setSelectedCard({ category, mainText, subText });
@@ -210,31 +212,6 @@ export default function HomeAssistant() {
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
       <View style={styles.container}>
-        <View style={styles.headerContainer}>
-          <Text style={styles.header}>Welcome to Web3DB App!</Text>
-          <View style={styles.buttonContainer}>
-            {/* <TouchableOpacity
-              style={[
-                styles.addButton,
-                !isEditing && styles.hidden,
-                isHovered && styles.addButtonHovered,
-              ]}
-              onPress={() => setAddContainerModalVisible(true)}
-              disabled={!isEditing}
-              onMouseEnter={handleMouseEnter}
-              onMouseLeave={handleMouseLeave}
-            >
-              <Text style={styles.addButtonText}>Add New Container</Text>
-            </TouchableOpacity> */}
-            {/* <TouchableOpacity style={styles.editButton} onPress={handleEditPress}>
-              <MaterialCommunityIcons
-                name={isEditing ? "check" : "pencil"}
-                size={24}
-                color="#fff"
-              />
-            </TouchableOpacity> */}
-          </View>
-        </View>
         <View style={styles.outerContainer}>
           {Object.entries(categories).map(([categoryName, items]) => (
             <CardContainer
@@ -311,7 +288,7 @@ export default function HomeAssistant() {
 }
 
 const styles = StyleSheet.create({
-  scrollContainer: { flexGrow: 1, paddingBottom: 20, paddingTop: 40},
+  scrollContainer: { flexGrow: 1, paddingBottom: 20, paddingTop: 20},
   container: { flex: 1, backgroundColor: "#f5f5f5", padding: 20 },
   headerContainer: { flexDirection: "row", justifyContent: "space-between", width: "100%", marginBottom: 20 },
   header: { fontSize: 20, fontWeight: "bold", flex: 1 },

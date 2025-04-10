@@ -86,7 +86,6 @@ const DataScreen: React.FC<DataScreenProps> = ({
     }, []);
   };
 
-
   useEffect(() => {
     if (values.length > 0) {
       setCurrent(values.at(0) ?? 0);
@@ -120,7 +119,7 @@ const DataScreen: React.FC<DataScreenProps> = ({
   };
 
   useEffect(() => {
-    if (lastOpened  || !hasFetchedRef.current) {
+    if (lastOpened || !hasFetchedRef.current) {
       fetchData();
       hasFetchedRef.current = true;
     }
@@ -149,9 +148,8 @@ const DataScreen: React.FC<DataScreenProps> = ({
                 timeRangeFilter: {
                   operator: "between",
                   startTime:
-                    new Date(lastOpened.getTime() - 24 * 60 * 60 * 1000)
-                      .toISOString()
-                      .split(".")[0] + "Z",
+                    new Date(lastOpened.getTime()).toISOString().split(".")[0] +
+                    "Z",
                   endTime:
                     new Date(selectedDate.getTime())
                       .toISOString()
@@ -196,9 +194,12 @@ const DataScreen: React.FC<DataScreenProps> = ({
       var time = 0;
 
       if (timeframe == "24 hours") {
-        time = 24 * 60 * 60 * 1000;
-      }
+        const midnight = new Date(selectedDate);
+        midnight.setHours(0, 0, 0, 0); 
 
+        time = selectedDate.getTime() - midnight.getTime();
+        console.log(time)
+      }
       if (timeframe == "5 hours") {
         time = 5 * 60 * 60 * 1000;
       }

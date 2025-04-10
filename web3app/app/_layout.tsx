@@ -31,7 +31,10 @@ function AppNavigation() {
 
   return (
     <Stack>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="(tabs)" options={{
+          headerShown: true,
+          title: "Web3DB App",
+        }} />
       <Stack.Screen name="+not-found" />
       <Stack.Screen
         name="DataTypeScreen"
