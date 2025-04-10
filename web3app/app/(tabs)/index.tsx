@@ -113,7 +113,7 @@ export default function HomeAssistant() {
       
 
       console.log("Grouped Data:", groupedData);
-      setCategories(groupedData);
+      setCategories({ ...groupedData });
     } catch (error) {
       console.error("Error fetching data types:", error);
       setCategories({
@@ -127,15 +127,27 @@ export default function HomeAssistant() {
       setLoading(false);
     }
   };
+  // useFocusEffect(
+  //   React.useCallback(() => {
+  //     const fetch = async () => {
+  //       await fetchDataTypes();
+  //     };
+  
+  //     fetch();
+  //   }, [])
+  // );
+
   useFocusEffect(
     React.useCallback(() => {
-      const fetch = async () => {
-        await fetchDataTypes();
-      };
+      fetchDataTypes();
   
-      fetch();
+      // Optional cleanup if needed
+      return () => {
+        // cleanup logic if necessary
+      };
     }, [])
   );
+  
   const handleCardPress = (category: string, mainText: string, subText: string) => {    
     setSelectedCard({ category, mainText, subText });
   const encdoedCategory = encodeURIComponent(category?.trim());
