@@ -193,36 +193,50 @@ const DataScreen: React.FC<DataScreenProps> = ({
 
       var time = 0;
 
-      if (timeframe == "24 hours") {
-        const midnight = new Date(selectedDate);
-        midnight.setHours(0, 0, 0, 0); 
-
-        time = selectedDate.getTime() - midnight.getTime();
-        console.log(time)
+      function toMidnight(date: Date): Date {
+        return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
       }
-      if (timeframe == "5 hours") {
+      
+      const now = new Date();
+      
+      if (timeframe === "24 hours") {
+        function getElapsedTime(selectedDate: Date): number {
+          const selectedMidnight = toMidnight(selectedDate);
+          const isToday = now.toDateString() === selectedMidnight.toDateString();
+      
+          if (isToday) {
+            return now.getTime() - selectedMidnight.getTime(); // From 12 AM today to now
+          } else {
+            return 24 * 60 * 60 * 1000; // Full day
+          }
+        }
+      
+        time = getElapsedTime(selectedDate);
+      }
+      
+      if (timeframe === "5 hours") {
         time = 5 * 60 * 60 * 1000;
       }
-
-      if (timeframe == "1 hour") {
+      
+      if (timeframe === "1 hour") {
         time = 60 * 60 * 1000;
       }
-
+      
+      // Always use midnight for the selected date
+      const selectedMidnight = toMidnight(selectedDate);
+      
       const requestBody2 = {
-        start_time:
-          new Date(selectedDate.getTime() - time).toISOString().split(".")[0] +
-          "Z",
+        start_time: new Date(selectedMidnight.getTime()).toISOString().split(".")[0] + "Z",
+        end_time: new Date(selectedMidnight.getTime() + time).toISOString().split(".")[0] + "Z",
         device_id: `${walletInfo.address}/${category_use}/${id}`,
-        end_time:
-          new Date(selectedDate.getTime()).toISOString().split(".")[0] + "Z",
       };
-      console.log(requestBody2);
+      
       const response = await axios.post(
         "http://129.74.152.201:5100/get-medical",
         requestBody2
       );
+      
 
-      console.log(response.data);
       if (!response.data || response.data.message === "No data available") {
         console.warn("No data received for:", timeframe);
         setCurrent(0);
