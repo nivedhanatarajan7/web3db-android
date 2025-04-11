@@ -178,7 +178,7 @@ const DataScreen: React.FC<DataScreenProps> = ({
                 };
 
                 const response = await axios.post(
-                  "http://129.74.152.201:5100/add-medical",
+                  "http://75.131.29.55:5100/add-medical",
                   requestBody
                 );
               });
@@ -193,25 +193,8 @@ const DataScreen: React.FC<DataScreenProps> = ({
 
       var time = 0;
 
-      function toMidnight(date: Date): Date {
-        return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
-      }
-      
-      const now = new Date();
-      
-      if (timeframe === "24 hours") {
-        function getElapsedTime(selectedDate: Date): number {
-          const selectedMidnight = toMidnight(selectedDate);
-          const isToday = now.toDateString() === selectedMidnight.toDateString();
-      
-          if (isToday) {
-            return now.getTime() - selectedMidnight.getTime(); // From 12 AM today to now
-          } else {
-            return 24 * 60 * 60 * 1000; // Full day
-          }
-        }
-      
-        time = getElapsedTime(selectedDate);
+      if (timeframe == "24 hours") {
+        time = 24 * 60 * 60 * 1000;
       }
       
       if (timeframe === "5 hours") {
@@ -222,17 +205,17 @@ const DataScreen: React.FC<DataScreenProps> = ({
         time = 60 * 60 * 1000;
       }
       
-      // Always use midnight for the selected date
-      const selectedMidnight = toMidnight(selectedDate);
-      
       const requestBody2 = {
-        start_time: new Date(selectedMidnight.getTime()).toISOString().split(".")[0] + "Z",
-        end_time: new Date(selectedMidnight.getTime() + time).toISOString().split(".")[0] + "Z",
+        start_time:
+          new Date(selectedDate.getTime() - time).toISOString().split(".")[0] +
+          "Z",
         device_id: `${walletInfo.address}/${category_use}/${id}`,
+        end_time:
+          new Date(selectedDate.getTime()).toISOString().split(".")[0] + "Z",
       };
       
       const response = await axios.post(
-        "http://129.74.152.201:5100/get-medical",
+        "http://75.131.29.55:5100/get-medical",
         requestBody2
       );
       
@@ -251,7 +234,7 @@ const DataScreen: React.FC<DataScreenProps> = ({
           }
         });
         const newTimestamps = rawData.map((record: any) => {
-          if (record != null) return new Date(record.timestamp).getTime();
+          if (record != null) return new Date(record.timestamp).getTime() -  4 * 60 * 60 * 1000;
         });
 
         const sortedData = newValues

@@ -24,7 +24,7 @@ export default function ProfileScreen() {
 
   const fetchUserProfile = async (walletId: string) => {
     try {
-      const response = await fetch("http://129.74.152.201:5100/get-profile", {
+      const response = await fetch("http://75.131.29.55:5100/get-profile", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -59,7 +59,7 @@ export default function ProfileScreen() {
 
   const saveProfile = async () => {
     try {
-      const response = await fetch("http://129.74.152.201:5100/add-profile", {
+      const response = await fetch("http://75.131.29.55:5100/add-profile", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

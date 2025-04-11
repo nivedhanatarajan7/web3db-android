@@ -9,8 +9,6 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 const ShareDeviceScreen = () => {
   const [deviceId, setDeviceId] = useState("");
   const [walletId, setWalletId] = useState("");
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [devices, setDevices] = useState([]);
   const router = useRouter();
   const { walletInfo, logout } = useAuth();
@@ -19,7 +17,7 @@ const ShareDeviceScreen = () => {
   const getDevice = async () => {
     try {
       const response = await axios.post(
-        "http://129.74.152.201:5100/get-registered-devices",
+        "http://75.131.29.55:5100/get-registered-devices",
         {
           wallet_id: walletInfo.address,
         }
@@ -40,43 +38,25 @@ const ShareDeviceScreen = () => {
 
   // Handle sharing device access
   const shareDevice = async () => {
-    const startTime = new Date(
-      selectedDate.getFullYear(),
-      selectedDate.getMonth(),
-      selectedDate.getDate(),
-      0,
-      0,
-      0
-    ).toISOString().split(".")[0] + "Z";
-
-    const endTime = new Date(
-      selectedDate.getFullYear(),
-      selectedDate.getMonth(),
-      selectedDate.getDate(),
-      23,
-      59,
-      0
-    ).toISOString().split(".")[0] + "Z";
-
     const newEntry = {
-      wallet_id: walletId,
+      subscriber_email: walletId,
       owner_id: walletInfo.address,
-      device_id: deviceId,
-      start_time: startTime,
-      end_time: endTime,
+      device_id: `${deviceId}`,
     };
+    console.log(`${walletInfo.address}/data_type`);
 
     try {
-      const response = await fetch("http://129.74.152.201:5100/share-access", {
+      const response = await fetch("http://75.131.29.55:5100/share-access", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newEntry),
       });
 
-      const responseData = await response.json();
-      console.log("Shared successfully:", responseData);
-    } catch (error) {
-      console.log("Error sharing device:", error);
+      const responseData = await response.json(); // Read response
+
+
+    } catch {
+      console.log("Error adding data");
     }
   };
 
@@ -93,7 +73,7 @@ const ShareDeviceScreen = () => {
           onChangeText={setWalletId}
         />
 
-        <Text style={styles.formlabel}>Select Device</Text>
+        <Text style={styles.formlabel}>Select Data to Send</Text>
         {devices.length === 0 ? (
           <Text style={styles.noDevices}>No devices found for your wallet.</Text>
         ) : (
@@ -111,33 +91,12 @@ const ShareDeviceScreen = () => {
                   ]}
                   onPress={() => setDeviceId(device.device_id)}
                 >
-                  {device.name} ({device.category})
+                  {device.device_id}
                 </Text>
               </View>
             );
           })
         )}
-
-        <View style={styles.datepicker}>
-          <Text style={styles.formlabel}>Select Date</Text>
-          <Button
-            title={selectedDate.toDateString()}
-            onPress={() => setShowDatePicker(true)}
-            color="#007AFF"
-          />
-
-          {showDatePicker && (
-            <DateTimePicker
-              value={selectedDate}
-              mode="date"
-              display="calendar"
-              onChange={(event, date) => {
-                setShowDatePicker(false);
-                if (date) setSelectedDate(date);
-              }}
-            />
-          )}
-        </View>
 
         <Button title="Share Data" onPress={shareDevice} color="#007AFF" />
       </Card>

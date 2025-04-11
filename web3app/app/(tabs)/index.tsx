@@ -69,7 +69,7 @@ export default function HomeAssistant() {
       console.log("Fetching data for wallet:", walletInfo.address);
 
       const response = await axios.post(
-        "http://129.74.152.201:5100/get-registered-devices",
+        "http://75.131.29.55:5100/get-registered-devices",
         { wallet_id: walletInfo.address }
       );
 

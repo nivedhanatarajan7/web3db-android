@@ -29,7 +29,7 @@ const DevicesScreen = () => {
     const getDevice = async () => {
       try {
         const response = await axios.post(
-          "http://129.74.152.201:5100/get-registered-devices",
+          "http://75.131.29.55:5100/get-registered-devices",
           {
             wallet_id: walletInfo.address,
           }
@@ -55,7 +55,7 @@ const DevicesScreen = () => {
       console.log(`${walletInfo.address}/data_type`);
   
       try {
-        const response = await fetch("http://129.74.152.201:5100/add-device", {
+        const response = await fetch("http://75.131.29.55:5100/add-device", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(newEntry),
