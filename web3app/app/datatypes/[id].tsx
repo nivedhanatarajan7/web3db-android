@@ -30,12 +30,16 @@ interface DataScreenProps {
   category: string;
   dataType: string;
   measurement: string;
+  walletid: string;
+  device: string;
 }
 
 const DataScreen: React.FC<DataScreenProps> = ({
   category,
   dataType,
   measurement,
+  walletid,
+  device
 }) => {
   const params = useLocalSearchParams();
   const navigation = useNavigation();
@@ -49,6 +53,9 @@ const DataScreen: React.FC<DataScreenProps> = ({
   const { walletInfo } = useAuth();
   const id = params.name as string;
   const category_use = params.id as string;
+  const walletaddr = params.walletid as string;
+  const devicename = params.devicename as string;
+  const isShared = params.isShared as string;
 
   const measurementUnit = params.measurementUnit as string;
   const title = id?.replace(/-/g, " ") || "Unknown";
@@ -143,6 +150,7 @@ const DataScreen: React.FC<DataScreenProps> = ({
               { accessType: "read", recordType: "Steps" },
             ]);
 
+            
             if (grantedPermissions.length > 0) {
               const result = await readRecords("Steps", {
                 timeRangeFilter: {
@@ -157,9 +165,11 @@ const DataScreen: React.FC<DataScreenProps> = ({
                 },
               });
 
+              console.log(result.records)
+
               result.records.forEach(async (record) => {
                 const requestBody = {
-                  device_id: `${walletInfo.address}/${category_use}/${id}`,
+                  device_id: `${walletaddr}/${devicename}/${category_use}/${id}`,
                   start_time:
                     new Date(new Date(record.startTime).getTime())
                       .toISOString()
@@ -178,7 +188,7 @@ const DataScreen: React.FC<DataScreenProps> = ({
                 };
 
                 const response = await axios.post(
-                  "http://75.131.29.55:5100/add-medical",
+                  "https://ugamyflaskapp2.duckdns.org/add-medical",
                   requestBody
                 );
               });
@@ -192,7 +202,6 @@ const DataScreen: React.FC<DataScreenProps> = ({
       }
 
       var time = 0;
-
       if (timeframe == "24 hours") {
         time = 24 * 60 * 60 * 1000;
       }
@@ -204,55 +213,109 @@ const DataScreen: React.FC<DataScreenProps> = ({
       if (timeframe === "1 hour") {
         time = 60 * 60 * 1000;
       }
-      
-      const requestBody2 = {
-        start_time:
-          new Date(selectedDate.getTime() - time).toISOString().split(".")[0] +
-          "Z",
-        device_id: `${walletInfo.address}/${category_use}/${id}`,
-        end_time:
-          new Date(selectedDate.getTime()).toISOString().split(".")[0] + "Z",
-      };
-      
-      const response = await axios.post(
-        "http://75.131.29.55:5100/get-medical",
-        requestBody2
-      );
-      
 
-      if (!response.data || response.data.message === "No data available") {
-        console.warn("No data received for:", timeframe);
-        setCurrent(0);
-      }
-
-      const rawData = response.data.data;
-
-      if (rawData && rawData.length > 0) {
-        const newValues = rawData.map((record: any) => {
-          if (record != null) {
-            return parseFloat(record.dataType);
-          }
-        });
-        const newTimestamps = rawData.map((record: any) => {
-          if (record != null) return new Date(record.timestamp).getTime() -  4 * 60 * 60 * 1000;
-        });
-
-        const sortedData = newValues
-          .map((value, index) => ({
-            value,
-            timestamp: newTimestamps[index],
-          }))
-          .sort((a, b) => a.timestamp - b.timestamp); // Sort by timestamp
-
-        const sortedValues = sortedData.map((data) => data.value);
-        const sortedTimestamps = sortedData.map((data) => data.timestamp);
-
-        setCurrent(sortedValues.at(0) ?? 0);
-        setValues(sortedValues);
-        setTimestamps(sortedTimestamps);
+      if (isShared == "true") {
+        const requestBody2 = {
+          wallet_id: walletInfo.address,
+          start_time:
+            new Date(selectedDate.getTime() - time).toISOString().split(".")[0] +
+            "Z",
+          device_id: `${walletaddr}/${devicename}/${category_use}/${id}`,
+          end_time:
+            new Date(selectedDate.getTime()).toISOString().split(".")[0] + "Z",
+        };
+        
+        const response = await axios.post(
+          "https://ugamyflaskapp2.duckdns.org/get-medical",
+          requestBody2
+        );
+        
+  
+        if (!response.data || response.data.message === "No data available") {
+          console.warn("No data received for:", timeframe);
+          setCurrent(0);
+        }
+  
+        const rawData = response.data.data;
+  
+        if (rawData && rawData.length > 0) {
+          const newValues = rawData.map((record: any) => {
+            if (record != null) {
+              return parseFloat(record.dataType);
+            }
+          });
+          const newTimestamps = rawData.map((record: any) => {
+            if (record != null) return new Date(record.timestamp).getTime();
+          });
+  
+          const sortedData = newValues
+            .map((value, index) => ({
+              value,
+              timestamp: newTimestamps[index],
+            }))
+            .sort((a, b) => a.timestamp - b.timestamp); // Sort by timestamp
+  
+          const sortedValues = sortedData.map((data) => data.value);
+          const sortedTimestamps = sortedData.map((data) => data.timestamp);
+  
+          setCurrent(sortedValues.at(0) ?? 0);
+          setValues(sortedValues);
+          setTimestamps(sortedTimestamps);
+        } else {
+          console.warn("No data found!");
+        }
       } else {
-        console.warn("No data found!");
+        const requestBody2 = {
+          start_time:
+            new Date(selectedDate.getTime() - time).toISOString().split(".")[0] +
+            "Z",
+          device_id: `${walletaddr}/${devicename}/${category_use}/${id}`,
+          end_time:
+            new Date(selectedDate.getTime()).toISOString().split(".")[0] + "Z",
+        };
+        
+        const response = await axios.post(
+          "https://ugamyflaskapp2.duckdns.org/get-medical",
+          requestBody2
+        );
+        
+  
+        if (!response.data || response.data.message === "No data available") {
+          console.warn("No data received for:", timeframe);
+          setCurrent(0);
+        }
+  
+        const rawData = response.data.data;
+  
+        if (rawData && rawData.length > 0) {
+          const newValues = rawData.map((record: any) => {
+            if (record != null) {
+              return parseFloat(record.dataType);
+            }
+          });
+          const newTimestamps = rawData.map((record: any) => {
+            if (record != null) return new Date(record.timestamp).getTime();
+          });
+  
+          const sortedData = newValues
+            .map((value, index) => ({
+              value,
+              timestamp: newTimestamps[index],
+            }))
+            .sort((a, b) => a.timestamp - b.timestamp); // Sort by timestamp
+  
+          const sortedValues = sortedData.map((data) => data.value);
+          const sortedTimestamps = sortedData.map((data) => data.timestamp);
+  
+          setCurrent(sortedValues.at(0) ?? 0);
+          setValues(sortedValues);
+          setTimestamps(sortedTimestamps);
+        } else {
+          console.warn("No data found!");
+        }
       }
+      
+      
     } catch (error) {
       console.error("Error fetching data", error);
     }

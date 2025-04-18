@@ -17,7 +17,7 @@ const ShareDeviceScreen = () => {
   const getDevice = async () => {
     try {
       const response = await axios.post(
-        "http://75.131.29.55:5100/get-registered-devices",
+        "https://ugamyflaskapp2.duckdns.org/get-registered-devices",
         {
           wallet_id: walletInfo.address,
         }
@@ -46,14 +46,14 @@ const ShareDeviceScreen = () => {
     console.log(`${walletInfo.address}/data_type`);
 
     try {
-      const response = await fetch("http://75.131.29.55:5100/share-access", {
+      const response = await fetch("https://ugamyflaskapp2.duckdns.org/share-access", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newEntry),
       });
 
       const responseData = await response.json(); // Read response
-
+console.log(responseData)
 
     } catch {
       console.log("Error adding data");
@@ -65,10 +65,10 @@ const ShareDeviceScreen = () => {
       <Text style={styles.title}>Share Data</Text>
       <Card style={styles.card}>
         <Text style={styles.header}>Share Data with Users</Text>
-        <Text style={styles.formlabel}>User's Wallet ID</Text>
+        <Text style={styles.formlabel}>User's Email</Text>
         <TextInput
           style={styles.input}
-          placeholder="Enter Wallet ID"
+          placeholder="Enter Email"
           value={walletId}
           onChangeText={setWalletId}
         />

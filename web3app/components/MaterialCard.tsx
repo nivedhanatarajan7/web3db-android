@@ -4,24 +4,30 @@ import { StyleSheet, TouchableOpacity, View, Animated } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 type MaterialCardProps = {
+  category: string,
   mainText?: string;
   subText?: string;
+  walletid: string,
+
   icon?: string;
   color?: string;
-  onPress: (category: string, mainText: string, subText: string) => void;
+  onPress: (category: string, mainText: string, subText: string, walletid:string) => void;
   isEditing: boolean;
   isActive?: boolean;
 };
 
 const MaterialCard: React.FC<MaterialCardProps> = ({
+  category,
+  walletid,
   mainText = "Create New Card",
   subText = "Data",
   icon = 'chart-bar',
   color = 'gray',
   onPress,
   isEditing,
-  isActive = true // ✅ FIX: Ensure it's a boolean
+  isActive = true,
 }) => {
+
   const scaleValue = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
@@ -42,7 +48,7 @@ const MaterialCard: React.FC<MaterialCardProps> = ({
 
   return (
     <TouchableOpacity
-      onPress={() => onPress(mainText, subText)}
+      onPress={() => onPress(category, mainText, subText, walletid)}
       onPressIn={handlePressIn}  // ✅ React Native animation
       onPressOut={handlePressOut}
       activeOpacity={1}

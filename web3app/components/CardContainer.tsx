@@ -27,16 +27,21 @@ type CardContainerProps = {
     category: string;
     name: string;
     measurement: string;
+    walletid: string;
+    devicename: string;
   }[];
-  onCardPress: (category: string, mainText: string, subText: string) => void;
+  onCardPress: (category: string, mainText: string, subText: string, walletid:string, devicename: string) => void;
   isEditing: boolean;
+  isShared?: boolean; // <-- add this
 };
+
 
 const CardContainer: React.FC<CardContainerProps> = ({
   title,
   items,
   onCardPress,
   isEditing,
+  isShared
 }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [newMainText, setNewMainText] = useState('');
@@ -142,23 +147,28 @@ const CardContainer: React.FC<CardContainerProps> = ({
         </Text>
       </View>
       <View style={styles.cardsContainer}>
-        {itemsList.map((item, index) => (
-          <View style={styles.cardWrapper} key={index}>
-            <MaterialCard
-              mainText={item.name}
-              subText={item.measurement}
-              onPress={
-                isEditing
-                  ? item.isActive
-                    ? () => onEditCardPress(index)
-                    : onEditAddCardPress
-                  : () => onCardPress(item.category, item.name, item.measurement)
-              }
-              isEditing={isEditing}
-              isActive={item.isActive}
-            />
-          </View>
-        ))}
+      {itemsList.map((item, index) => (
+  <View style={styles.cardWrapper} key={index}>
+    <MaterialCard
+    category={item.category}
+      mainText={item.name}
+      subText={item.measurement}
+      onPress={
+        isShared
+          ? () => onCardPress(item.category, item.name, item.measurement, item.walletid, item.devicename) // maybe no edit mode
+          : isEditing
+          ? item.isActive
+            ? () => onEditCardPress(index)
+            : onEditAddCardPress
+          : () => onCardPress(item.category, item.name, item.measurement, item.walletid, item.devicename)
+      }
+      walletid={item.walletid}
+      isEditing={!isShared && isEditing} // Disable editing in shared view
+      isActive={item.isActive}
+    />
+  </View>
+))}
+
       </View>
       <Modal
         animationType="none"

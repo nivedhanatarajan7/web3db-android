@@ -9,159 +9,140 @@ import {
   Animated,
   TextInput,
   Button,
-  KeyboardAvoidingView,
-  Platform,
   Dimensions,
 } from "react-native";
 import CardContainer from "../../components/CardContainer";
-import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
+import { Picker } from "@react-native-picker/picker";
 import { useRouter } from "expo-router";
 import axios from "axios";
 import { useAuth } from "../AuthContext";
-import DataScreen from "../datatypes/[id]"; 
-import { useFocusEffect } from '@react-navigation/native';
+import DataScreen from "../datatypes/[id]";
+import { useFocusEffect } from "@react-navigation/native";
 
 const { width, height } = Dimensions.get("window");
 
 export default function HomeAssistant() {
   const router = useRouter();
-  const { walletInfo, logout } = useAuth();
-
+  const { walletInfo } = useAuth();
+  type DataType = {
+    category: string;
+    type: string;
+    measurement: string;
+    walletid: string;
+    devicename: string;
+  };
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedCard, setSelectedCard] = useState<{
     category: string;
-
     mainText: string;
     subText: string;
+    walletid: string;
+    devicename: string;
+
   } | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [dataTypes, setDataTypes] = useState<DataType[]>([]);
 
   const [categories, setCategories] = useState<{
     [key: string]: {
       category: string;
       name: string;
       measurement: string;
+      devicename: string;
+
       isActive: boolean;
     }[];
   }>({});
-  const [newDataType, setNewDataType] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [customCategory, setCustomCategory] = useState(false);
-  const [newCategory, setNewCategory] = useState("");
-  const [measurement, setMeasurement] = useState("");
-  const [loading, setLoading] = useState(false);
   const [newContainerName, setNewContainerName] = useState("");
   const [addContainerModalVisible, setAddContainerModalVisible] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
 
-  const handleMouseEnter = () => {
-    setIsHovered(true);
-  };
-
-  const handleMouseLeave = () => {
-    setIsHovered(false);
-  };
+  const [viewMode, setViewMode] = useState<"my" | "shared">("my");
 
   const fetchDataTypes = async () => {
     try {
-      setLoading(true);
-      console.log("Fetching data for wallet:", walletInfo.address);
 
-      const response = await axios.post(
-        "http://75.131.29.55:5100/get-registered-devices",
-        { wallet_id: walletInfo.address }
-      );
-
-      console.log("Full API Response:", response.data);
-
-      const responseData = response.data.devices || [];
-
-      if (!Array.isArray(responseData) || responseData.length === 0) {
-        console.warn("No devices found, using default categories.");
-        setCategories({
-          Health: [
-            { category: "Health", name: "Heart Rate", measurement: "bpm", isActive: true },
-            { category: "Health", name: "Blood Pressure", measurement: "mmHg", isActive: true },
-          ],
-          Home: [{ category: "Home", name: "Temperature", measurement: "°C", isActive: true }],
-        });
+      if (viewMode === "shared") {
+        setDataTypes([
+          {
+            category: "Exercise",
+            type: "Footsteps",
+            measurement: "Steps",
+            walletid: "0xce2b1bce9a54261ef0d9ddcb1818b4f882f37153",
+            devicename: "Watch"
+          },
+        ]);
         return;
       }
+      
+      const response = await axios.post(
+        "https://ugamyflaskapp2.duckdns.org/get-registered-devices",
+        { wallet_id: walletInfo.address }
+      );
+  
+      const responseData = response.data.devices || [];
 
-      // Merge categories correctly
       const groupedData = responseData.reduce((acc, item) => {
         if (!item.category || !item.name) return acc;
-      
         if (!acc[item.category]) acc[item.category] = [];
-      
+        const parts = item.device_id.split("/");
+        const deviceName = parts[1];
         const exists = acc[item.category].some(existing => existing.name === item.name);
         if (!exists) {
-          acc[item.category] = [
-            ...acc[item.category],
-            {
-              category: item.category,
-              name: item.name,
-              measurement: item.measurement_unit || "N/A",
-              isActive: true,
-            },
-          ];
+          acc[item.category].push({
+            category: item.category,
+            name: item.name,
+            measurement: item.measurement_unit || "N/A",
+            devicename: deviceName,
+            isActive: true,
+          });
         }
-      
         return acc;
-      }, {});
-      
+      }, {} as typeof categories);
 
-      console.log("Grouped Data:", groupedData);
-      setCategories({ ...groupedData });
+      setCategories(groupedData);
     } catch (error) {
       console.error("Error fetching data types:", error);
-      setCategories({
-        Health: [
-          { category: "Health", name: "Heart Rate", measurement: "bpm", isActive: true },
-          { category: "Health", name: "Blood Pressure", measurement: "mmHg", isActive: true },
-        ],
-        Home: [{ category: "Home", name: "Temperature", measurement: "°C", isActive: true }],
-      });
-    } finally {
-      setLoading(false);
     }
   };
-  // useFocusEffect(
-  //   React.useCallback(() => {
-  //     const fetch = async () => {
-  //       await fetchDataTypes();
-  //     };
-  
-  //     fetch();
-  //   }, [])
-  // );
 
   useFocusEffect(
     React.useCallback(() => {
       fetchDataTypes();
-  
-      // Optional cleanup if needed
-      return () => {
-        // cleanup logic if necessary
-      };
+    }, [viewMode])
+  );
+
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchDataTypes();
     }, [])
   );
 
+  const handleCardPress = (
+    category: string,
+    mainText: string,
+    subText: string,
+    walletid: string,
+    devicename: string
+  ) => {
+    const isShared = viewMode === "shared";
+    
+    const encodedCategory = encodeURIComponent(category?.trim());
+    const encodedMainText = encodeURIComponent(mainText?.trim());
+    const encodedSubText = encodeURIComponent(subText?.trim());
+    const encodedWalletId = encodeURIComponent(walletid?.trim());
+    const encodedDeviceName = encodeURIComponent(devicename?.trim());
   
+    router.push(
+      `/datatypes/${encodedCategory}?name=${encodedMainText}&measurementUnit=${encodedSubText}&walletid=${encodedWalletId}&devicename=${encodedDeviceName}&isShared=${isShared}`
+    );
+  };
   
-  const handleCardPress = (category: string, mainText: string, subText: string) => {    
-    setSelectedCard({ category, mainText, subText });
-  const encdoedCategory = encodeURIComponent(category?.trim());
-  const encodedMainText = encodeURIComponent(mainText?.trim());
-  const encodedSubText = encodeURIComponent(subText?.trim());
-  router.push(`/datatypes/${encdoedCategory}?name=${encodedMainText}&measurementUnit=${encodedSubText}`);
-};
 
   const handleCloseModal = () => {
     Animated.timing(fadeAnim, {
       toValue: 0,
-      duration: 10, // Instant duration
+      duration: 10,
       useNativeDriver: true,
     }).start(() => {
       setModalVisible(false);
@@ -179,6 +160,7 @@ export default function HomeAssistant() {
             category,
             name: "Create New Card",
             measurement: "Insert Data",
+            devicename: "N/A",
             isActive: false,
           });
         } else {
@@ -193,13 +175,15 @@ export default function HomeAssistant() {
 
   const handleAddContainer = () => {
     if (newContainerName) {
-      setCategories((prevCategories) => ({
-        ...prevCategories,
+      setCategories(prev => ({
+        ...prev,
         [newContainerName]: [
           {
             category: newContainerName,
             name: "Create New Card",
             measurement: "Insert Data",
+            devicename: "N/A",
+
             isActive: false,
           },
         ],
@@ -212,41 +196,68 @@ export default function HomeAssistant() {
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
       <View style={styles.container}>
-        <View style={styles.outerContainer}>
-          {Object.entries(categories).map(([categoryName, items]) => (
-            <CardContainer
-              key={categoryName}
-              title={categoryName}
-              items={items} // Pass items array to CardContainer
-              onCardPress={
-                handleCardPress
-              }
-              isEditing={isEditing}
-            />
-          ))}
+        <View style={styles.pickerContainer}>
+          <Picker
+            selectedValue={viewMode}
+            onValueChange={value => setViewMode(value)}
+            style={styles.picker}
+            mode="dropdown"
+          >
+            <Picker.Item label="My Devices" value="my" />
+            <Picker.Item label="Shared Devices" value="shared" />
+          </Picker>
         </View>
 
+        <View style={styles.outerContainer}>
+        {viewMode === "my" ? (
+  Object.entries(categories).map(([categoryName, items]) => (
+    <CardContainer
+      key={categoryName}
+      title={categoryName}
+      items={items.map(item => ({
+        ...item,
+        walletid: walletInfo.address, // Ensure walletid is passed
+      }))}
+      onCardPress={handleCardPress}
+      isEditing={isEditing}
+      isShared={false}
+    />
+  ))
+) : (
+  <CardContainer
+    title="Health"
+    items={dataTypes.map(dt => ({
+      category: dt.category,
+      name: dt.type,
+      measurement: dt.measurement,
+      devicename: dt.devicename,
+
+      walletid: dt.walletid,
+      isActive: true,
+    }))}
+    onCardPress={handleCardPress}
+    isEditing={false}
+    isShared={true}
+  />
+)}
+
+</View>
+
+
+
         {selectedCard && (
-          <Modal
-            transparent={true}
-            visible={modalVisible}
-            onRequestClose={handleCloseModal}
-          >
-            <Animated.View
-              style={[styles.modalContainer, { opacity: fadeAnim }]}
-            >
+          <Modal transparent={true} visible={modalVisible} onRequestClose={handleCloseModal}>
+            <Animated.View style={[styles.modalContainer, { opacity: fadeAnim }]}>
               <View style={styles.modalContent}>
-                <TouchableOpacity
-                  onPress={handleCloseModal}
-                  style={styles.closeButton}
-                >
+                <TouchableOpacity onPress={handleCloseModal} style={styles.closeButton}>
                   <Text style={styles.closeButtonText}>X</Text>
                 </TouchableOpacity>
                 <DataScreen
                   category={selectedCard.category}
-
                   dataType={selectedCard.mainText}
                   measurement={selectedCard.subText}
+                  walletid={selectedCard.walletid}
+                  device={selectedCard.devicename}
                 />
               </View>
             </Animated.View>
@@ -268,16 +279,8 @@ export default function HomeAssistant() {
                 onChangeText={setNewContainerName}
               />
               <View style={styles.buttonRow}>
-                <Button
-                  title="Cancel"
-                  onPress={() => setAddContainerModalVisible(false)}
-                  color="gray"
-                />
-                <Button
-                  title="Add"
-                  onPress={handleAddContainer}
-                  color="#2196F3"
-                />
+                <Button title="Cancel" onPress={() => setAddContainerModalVisible(false)} color="gray" />
+                <Button title="Add" onPress={handleAddContainer} color="#2196F3" />
               </View>
             </View>
           </View>
@@ -288,21 +291,34 @@ export default function HomeAssistant() {
 }
 
 const styles = StyleSheet.create({
-  scrollContainer: { flexGrow: 1, paddingBottom: 20, paddingTop: 20},
+  scrollContainer: { flexGrow: 1, paddingBottom: 20, paddingTop: 20 },
   container: { flex: 1, backgroundColor: "#f5f5f5", padding: 20 },
-  headerContainer: { flexDirection: "row", justifyContent: "space-between", width: "100%", marginBottom: 20 },
-  header: { fontSize: 20, fontWeight: "bold", flex: 1 },
-  editButton: { backgroundColor: "#4da6ff", padding: 10, borderRadius: 100 },
+  pickerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 15,
+    paddingHorizontal: 10,
+  },
+  pickerLabel: {
+    fontWeight: "bold",
+    fontSize: 16,
+    marginRight: 10,
+  },
+  picker: {
+    flex: 1,
+    backgroundColor: "#ffffff",
+    borderRadius: 8,
+  },
   outerContainer: { flexWrap: "wrap", width: "100%", marginBottom: 20 },
   modalContainer: {
-    flex: 1, // Ensures it takes full screen height
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)", // Adds a transparent background
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   modalContent: {
-    width: "90%", // Adjust for mobile-friendly width
-    maxHeight: "90%", // Ensure it doesn't overflow
+    width: "90%",
+    maxHeight: "90%",
     backgroundColor: "white",
     padding: 20,
     borderRadius: 10,
@@ -311,6 +327,18 @@ const styles = StyleSheet.create({
   },
   closeButton: { alignSelf: "flex-end" },
   closeButtonText: { fontSize: 18, fontWeight: "bold" },
-  input: { width: "100%", padding: 10, borderWidth: 1, borderColor: "#ccc", borderRadius: 5, marginBottom: 10 },
-  buttonRow: { flexDirection: "row", justifyContent: "space-between", width: "100%" },
+  modalTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 10 },
+  input: {
+    width: "100%",
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 5,
+    marginBottom: 10,
+  },
+  buttonRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+  },
 });
