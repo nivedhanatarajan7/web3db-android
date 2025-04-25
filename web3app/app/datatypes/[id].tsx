@@ -22,6 +22,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AppStateStatus } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useSecureStore } from "@/hooks/useSecureStore";
+import { getItem, setItem } from "expo-secure-store";
 const { saveItem } = useSecureStore();
 
 const { width } = Dimensions.get("window");
@@ -39,7 +40,7 @@ const DataScreen: React.FC<DataScreenProps> = ({
   dataType,
   measurement,
   walletid,
-  device
+  device,
 }) => {
   const params = useLocalSearchParams();
   const navigation = useNavigation();
@@ -59,87 +60,61 @@ const DataScreen: React.FC<DataScreenProps> = ({
 
   const measurementUnit = params.measurementUnit as string;
   const title = id?.replace(/-/g, " ") || "Unknown";
+  const [lastOpened, setLastOpened] = useState<string>("");
 
   const [values, setValues] = useState<number[]>([]);
   const [timestamps, setTimestamps] = useState<number[]>([]);
   const [current, setCurrent] = useState(0);
   const [timeframe, setTimeframe] = useState<string>("5 hours");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [lastOpened, setLastOpened] = useState<Date | null>(null);
-  const hasFetchedRef = useRef(false);
 
-  const useAppLastClosedTracker = () => {
-    const appState = useRef<AppStateStatus>(AppState.currentState);
-
-    useEffect(() => {
-      const handleAppStateChange = async (nextAppState: AppStateStatus) => {
-        if (
-          appState.current === "inactive" ||
-          appState.current === "background"
-        ) {
-          if (nextAppState === "active") {
-            const currentTime = new Date().toISOString();
-            await saveItem("lastOpened", currentTime);
-          }
-        }
-        appState.current = nextAppState;
-      };
-
-      const subscription = AppState.addEventListener(
-        "change",
-        handleAppStateChange
-      );
-      return () => subscription.remove();
-    }, []);
-  };
-
-  useEffect(() => {
-    if (values.length > 0) {
-      setCurrent(values.at(0) ?? 0);
-    }
-  }, [values]);
-
-  useAppLastClosedTracker();
-
+  // Fetch and save `lastOpened` timestamp
   useEffect(() => {
     const fetchLastOpened = async () => {
-      const { getItem } = useSecureStore();
-      const saved = await getItem("lastOpened");
-      if (saved) {
-        setLastOpened(new Date(saved));
+      try {
+        const storedLastOpened = await getItem("lastOpened");
+
+        if (!storedLastOpened) {
+          const now = new Date().toISOString();
+          setLastOpened(now);  // Set initial value to now
+        } else {
+          setLastOpened(storedLastOpened);
+        }
+      } catch (error) {
+        console.warn("Error fetching lastOpened:", error);
       }
     };
+
     fetchLastOpened();
-  }, []);
 
-  const requestActivityPermission = async () => {
-    try {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.ACTIVITY_RECOGNITION
-      );
+    return () => {
+      // Save `lastOpened` timestamp when page is closed
+      const saveLastOpened = async () => {
+        try {
+          const now = new Date().toISOString();
+          await setItem("lastOpened", now);
+        } catch (error) {
+          console.warn("Error saving lastOpened:", error);
+        }
+      };
 
-      return granted === PermissionsAndroid.RESULTS.GRANTED;
-    } catch (err) {
-      console.warn(err);
-      return false;
-    }
-  };
+      saveLastOpened();
+    };
+  }, []); // Run this effect only once, on mount and unmount
 
   useEffect(() => {
-    if (lastOpened || !hasFetchedRef.current) {
-      fetchData();
-      hasFetchedRef.current = true;
-    }
-  }, [timeframe, selectedDate, lastOpened]);
+    getData();
+  }, []);
 
-  const fetchData = async () => {
+  const getData = () => {
     try {
+      const lastOpenedDate = new Date(lastOpened);
+
       if (title == "Footsteps") {
         const readSampleData = async () => {
           const isInitialized = await initialize();
 
-          if (isInitialized && !hasFetchedRef.current) {
-            console.log(hasFetchedRef);
+          if (isInitialized) {
             const hasActivityPermission = await requestActivityPermission();
             if (!hasActivityPermission) {
               console.log("Activity recognition permission not granted.");
@@ -150,22 +125,22 @@ const DataScreen: React.FC<DataScreenProps> = ({
               { accessType: "read", recordType: "Steps" },
             ]);
 
-            
+            const lastOpened = await getItem("lastOpened");
+            const formattedSelectedDate = new Date(selectedDate.getTime()).toISOString().split(".")[0] + "Z";
+            const formattedLastOpened = new Date(new Date(lastOpened).getTime()).toISOString().split(".")[0] + "Z";
+            console.log(formattedLastOpened);
+          
             if (grantedPermissions.length > 0) {
               const result = await readRecords("Steps", {
                 timeRangeFilter: {
                   operator: "between",
-                  startTime:
-                    new Date(lastOpened.getTime()).toISOString().split(".")[0] +
-                    "Z",
-                  endTime:
-                    new Date(selectedDate.getTime())
-                      .toISOString()
-                      .split(".")[0] + "Z",
+                  startTime: formattedLastOpened,
+                  endTime: formattedSelectedDate,
                 },
               });
+          
 
-              console.log(result.records)
+              console.log(result.records);
 
               result.records.forEach(async (record) => {
                 const requestBody = {
@@ -191,6 +166,8 @@ const DataScreen: React.FC<DataScreenProps> = ({
                   "https://ugamyflaskapp2.duckdns.org/add-medical",
                   requestBody
                 );
+
+                console.log(response.data)
               });
             } else {
               console.log("No permissions granted.");
@@ -200,16 +177,47 @@ const DataScreen: React.FC<DataScreenProps> = ({
 
         readSampleData();
       }
+    } catch {
+      console.warn("Error fetching data from HC");
+    }
+  };
 
+  useEffect(() => {
+    if (values.length > 0) {
+      setCurrent(values.at(0) ?? 0);
+    }
+  }, [values]);
+
+
+  const requestActivityPermission = async () => {
+    try {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACTIVITY_RECOGNITION
+      );
+
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    } catch (err) {
+      console.warn(err);
+      return false;
+    }
+  };
+
+  // Fetch data on timeframe change
+  useEffect(() => {
+    fetchData();
+  }, [timeframe, selectedDate]);
+
+  const fetchData = async () => {
+    try {
       var time = 0;
       if (timeframe == "24 hours") {
         time = 24 * 60 * 60 * 1000;
       }
-      
+
       if (timeframe === "5 hours") {
         time = 5 * 60 * 60 * 1000;
       }
-      
+
       if (timeframe === "1 hour") {
         time = 60 * 60 * 1000;
       }
@@ -218,26 +226,30 @@ const DataScreen: React.FC<DataScreenProps> = ({
         const requestBody2 = {
           wallet_id: walletInfo.address,
           start_time:
-            new Date(selectedDate.getTime() - time).toISOString().split(".")[0] +
-            "Z",
+            new Date(selectedDate.getTime() - time)
+              .toISOString()
+              .split(".")[0] + "Z",
           device_id: `${walletaddr}/${devicename}/${category_use}/${id}`,
           end_time:
             new Date(selectedDate.getTime()).toISOString().split(".")[0] + "Z",
         };
-        
+
+        console.log(requestBody2)
+
         const response = await axios.post(
           "https://ugamyflaskapp2.duckdns.org/get-medical",
           requestBody2
         );
-        
-  
+
+        console.log(response.data)
+
         if (!response.data || response.data.message === "No data available") {
           console.warn("No data received for:", timeframe);
           setCurrent(0);
         }
-  
+
         const rawData = response.data.data;
-  
+
         if (rawData && rawData.length > 0) {
           const newValues = rawData.map((record: any) => {
             if (record != null) {
@@ -247,17 +259,17 @@ const DataScreen: React.FC<DataScreenProps> = ({
           const newTimestamps = rawData.map((record: any) => {
             if (record != null) return new Date(record.timestamp).getTime();
           });
-  
+
           const sortedData = newValues
             .map((value, index) => ({
               value,
               timestamp: newTimestamps[index],
             }))
             .sort((a, b) => a.timestamp - b.timestamp); // Sort by timestamp
-  
+
           const sortedValues = sortedData.map((data) => data.value);
           const sortedTimestamps = sortedData.map((data) => data.timestamp);
-  
+
           setCurrent(sortedValues.at(0) ?? 0);
           setValues(sortedValues);
           setTimestamps(sortedTimestamps);
@@ -267,26 +279,32 @@ const DataScreen: React.FC<DataScreenProps> = ({
       } else {
         const requestBody2 = {
           start_time:
-            new Date(selectedDate.getTime() - time).toISOString().split(".")[0] +
-            "Z",
+            new Date(selectedDate.getTime() - time)
+              .toISOString()
+              .split(".")[0] + "Z",
           device_id: `${walletaddr}/${devicename}/${category_use}/${id}`,
           end_time:
             new Date(selectedDate.getTime()).toISOString().split(".")[0] + "Z",
         };
-        
+
         const response = await axios.post(
           "https://ugamyflaskapp2.duckdns.org/get-medical",
           requestBody2
         );
-        
-  
+        console.log(requestBody2)
+
+        console.log(new Date(selectedDate.getTime() - time)
+        .toISOString()
+        .split(".")[0] + "Z")
+
+
         if (!response.data || response.data.message === "No data available") {
           console.warn("No data received for:", timeframe);
           setCurrent(0);
         }
-  
+
         const rawData = response.data.data;
-  
+
         if (rawData && rawData.length > 0) {
           const newValues = rawData.map((record: any) => {
             if (record != null) {
@@ -296,17 +314,17 @@ const DataScreen: React.FC<DataScreenProps> = ({
           const newTimestamps = rawData.map((record: any) => {
             if (record != null) return new Date(record.timestamp).getTime();
           });
-  
+
           const sortedData = newValues
             .map((value, index) => ({
               value,
               timestamp: newTimestamps[index],
             }))
             .sort((a, b) => a.timestamp - b.timestamp); // Sort by timestamp
-  
+
           const sortedValues = sortedData.map((data) => data.value);
           const sortedTimestamps = sortedData.map((data) => data.timestamp);
-  
+
           setCurrent(sortedValues.at(0) ?? 0);
           setValues(sortedValues);
           setTimestamps(sortedTimestamps);
@@ -314,8 +332,6 @@ const DataScreen: React.FC<DataScreenProps> = ({
           console.warn("No data found!");
         }
       }
-      
-      
     } catch (error) {
       console.error("Error fetching data", error);
     }

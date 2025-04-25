@@ -59,52 +59,95 @@ export default function HomeAssistant() {
 
   const [viewMode, setViewMode] = useState<"my" | "shared">("my");
 
+  const processDevices = (responseData: any[], isShared: boolean) => {
+    return responseData.reduce((acc, item) => {
+      let category, name, deviceName, measurement;
+  
+      if (isShared) {
+        // Log the device string before processing
+        console.log("Processing shared device:", item);
+        const parts = item.split("/");
+        console.log(parts); // Log the split result
+  
+        if (parts.length !== 4) {
+          console.log("Skipping invalid shared device:", item); // Log skipped devices
+          return acc; // Skip invalid entries
+        }
+  
+        const [walletid, devicename, devCategory, type] = parts;
+        category = devCategory;
+        name = type;  // In shared, the type serves as the name
+        deviceName = devicename;
+        measurement = "N/A"; // No measurement info in shared devices
+      } else {
+        // For registered devices, extract from the object properties
+        category = item.category;
+        name = item.name;
+        deviceName = item.device_id.split("/")[1]; // Extract devicename from device_id
+        measurement = item.measurement_unit || "N/A";
+      }
+  
+      // Skip items that are missing category or name
+      if (!category || !name) {
+        console.log("Skipping invalid device:", item); // Log skipped devices
+        return acc;
+      }
+  
+      // Ensure that the category exists in the accumulator
+      if (!acc[category]) acc[category] = [];
+  
+      // Check if the item already exists in the category
+      const exists = acc[category].some(existing => existing.name === name);
+      if (!exists) {
+        acc[category].push({
+          category,
+          name,
+          measurement,
+          devicename: deviceName,
+          isActive: true,
+        });
+      }
+      return acc;
+    }, {} as typeof categories);
+  };
+  
   const fetchDataTypes = async () => {
     try {
-
+      let responseData: any[] = [];
+  
       if (viewMode === "shared") {
-        setDataTypes([
-          {
-            category: "Exercise",
-            type: "Footsteps",
-            measurement: "Steps",
-            walletid: "0xce2b1bce9a54261ef0d9ddcb1818b4f882f37153",
-            devicename: "Watch"
-          },
-        ]);
+        console.log("Fetching shared devices...");
+        const response = await axios.post(
+          "https://ugamyflaskapp2.duckdns.org/get-subscribed-devices",
+          { wallet_id: walletInfo.address }
+        );
+  
+        responseData = response.data.devices || [];
+        console.log("Shared devices:", responseData); // Log shared devices
+        // Process shared devices
+        const groupedData = processDevices(responseData, true);
+        setCategories(groupedData);
         return;
       }
-      
+  
+      // For registered devices
+      console.log("Fetching registered devices...");
       const response = await axios.post(
         "https://ugamyflaskapp2.duckdns.org/get-registered-devices",
         { wallet_id: walletInfo.address }
       );
-  
-      const responseData = response.data.devices || [];
-
-      const groupedData = responseData.reduce((acc, item) => {
-        if (!item.category || !item.name) return acc;
-        if (!acc[item.category]) acc[item.category] = [];
-        const parts = item.device_id.split("/");
-        const deviceName = parts[1];
-        const exists = acc[item.category].some(existing => existing.name === item.name);
-        if (!exists) {
-          acc[item.category].push({
-            category: item.category,
-            name: item.name,
-            measurement: item.measurement_unit || "N/A",
-            devicename: deviceName,
-            isActive: true,
-          });
-        }
-        return acc;
-      }, {} as typeof categories);
-
+      
+      responseData = response.data.devices || [];
+      console.log("Registered devices:", responseData); // Log registered devices
+      // Process registered devices
+      const groupedData = processDevices(responseData, false);
       setCategories(groupedData);
+  
     } catch (error) {
       console.error("Error fetching data types:", error);
     }
   };
+  
 
   useFocusEffect(
     React.useCallback(() => {
@@ -209,7 +252,21 @@ export default function HomeAssistant() {
         </View>
 
         <View style={styles.outerContainer}>
-        {viewMode === "my" ? (
+        {viewMode === "shared" ? (
+  Object.entries(categories).map(([categoryName, items]) => (
+    <CardContainer
+      key={categoryName}
+      title={categoryName}
+      items={items.map(item => ({
+        ...item,
+        walletid: walletInfo.address, // Ensure walletid is passed
+      }))}
+      onCardPress={handleCardPress}
+      isEditing={false}
+      isShared={true}
+    />
+  ))
+) : (
   Object.entries(categories).map(([categoryName, items]) => (
     <CardContainer
       key={categoryName}
@@ -223,23 +280,8 @@ export default function HomeAssistant() {
       isShared={false}
     />
   ))
-) : (
-  <CardContainer
-    title="Health"
-    items={dataTypes.map(dt => ({
-      category: dt.category,
-      name: dt.type,
-      measurement: dt.measurement,
-      devicename: dt.devicename,
-
-      walletid: dt.walletid,
-      isActive: true,
-    }))}
-    onCardPress={handleCardPress}
-    isEditing={false}
-    isShared={true}
-  />
 )}
+
 
 </View>
 
